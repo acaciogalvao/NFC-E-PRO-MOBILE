@@ -46,16 +46,16 @@ const BLANK_POSTO: PostoData = {
   tipoChavePix: 'CNPJ'
 };
 
-// Valores padrão em Porcentagem (%)
+// Valores padrão em Porcentagem (%) - ZERADOS
 const DEFAULT_IMPOSTOS_PERCENTAGES = {
-  federal: '13,45', 
-  estadual: '18,00',
+  federal: '0,00', 
+  estadual: '0,00',
   municipal: '0,00',
 };
 
 const DEFAULT_TAX_RATES: TaxRates = {
-  federal: '13,45',
-  estadual: '18,00',
+  federal: '0,00',
+  estadual: '0,00',
   municipal: '0,00'
 };
 
@@ -140,17 +140,8 @@ const App: React.FC = () => {
     }));
   }, [taxRates]);
 
-  // Carrega o último modelo selecionado ao abrir o app
-  useEffect(() => {
-    const lastId = localStorage.getItem(LOCAL_STORAGE_KEY_LAST_MODEL);
-    if (lastId && !selectedModelId && savedModels.length > 0) {
-      const modelExists = savedModels.some(m => m.id === lastId);
-      if (modelExists) {
-        handleLoadModel(lastId);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  // REMOVIDO: useEffect que carregava automaticamente o último modelo.
+  // O sistema agora inicia sempre com os dados em branco (BLANK_POSTO, etc).
 
   // --- ACTIONS ---
 
@@ -323,6 +314,7 @@ const App: React.FC = () => {
       
       setSavedModels(prev => [...prev, newModel]);
       setSelectedModelId(newId);
+      // Salva o último ID, mas não carrega automaticamente no inicio
       localStorage.setItem(LOCAL_STORAGE_KEY_LAST_MODEL, newId);
       alert(`Modelo "${modelName}" criado e salvo!`);
     }
@@ -343,8 +335,10 @@ const App: React.FC = () => {
 
   const handleLoadModel = (modelId: string) => {
     if (!modelId) {
+      // Se selecionou "Selecione..." ou vazio, limpa tudo
       setSelectedModelId('');
       localStorage.removeItem(LOCAL_STORAGE_KEY_LAST_MODEL);
+      handleNewModel(false);
       return; 
     }
     
