@@ -1,14 +1,46 @@
 
 export type TabId = 'EDITAR' | 'PRECOS' | 'NOTA' | 'PAGAMENTO' | 'API';
 
+export type PaymentMethod = 'DINHEIRO' | 'PIX' | 'CARTAO' | 'CREDITO' | 'DEBITO';
+
+// Configuração completa do visual do comprovante
+export interface LayoutConfig {
+  id: string;
+  name: string;
+  fontFamily: 'MONO' | 'SANS';
+  fontSize: 'SMALL' | 'MEDIUM';
+  textAlign: 'LEFT' | 'CENTER';
+  
+  // Visibilidade (Estrutura)
+  showSidebars: boolean; 
+  showBorders: boolean; 
+  showHeader: boolean;
+  showConsumer: boolean;
+  showQrCode: boolean;
+  showFooter: boolean;
+  
+  density: 'COMPACT' | 'COMFORTABLE';
+
+  // Customização de Textos (Novo)
+  customTexts: {
+    headerTitle: string;
+    subHeader: string;
+    taxLabel: string;
+    consumerLabel: string;
+    footerMessage: string;
+  };
+}
+
 export interface FuelItem {
   id: string;
-  productId?: string; // Link to the master PriceItem for auto-updates
+  productId?: string;
   code: string;
   name: string;
   quantity: string;
-  unitPrice: string;
+  unitPrice: string; // Preço a vista/dinheiro
+  unitPriceCard?: string; // Preço no cartão (opcional)
   unit: string;
+  total: string;
 }
 
 export interface PostoData {
@@ -16,6 +48,13 @@ export interface PostoData {
   cnpj: string;
   inscEstadual: string;
   endereco: string;
+  activeLayoutId: string; 
+}
+
+export interface TaxRates {
+  federal: string;
+  estadual: string;
+  municipal: string;
 }
 
 export interface InvoiceData {
@@ -29,6 +68,8 @@ export interface InvoiceData {
   chaveAcesso: string;
   protocolo: string;
   urlQrCode: string;
+  formaPagamento: PaymentMethod;
+  // Armazena VALORES MONETÁRIOS (R$) exatos digitados pelo usuário
   impostos: {
     federal: string;
     estadual: string;
@@ -42,6 +83,7 @@ export interface PriceItem {
   name: string;
   unit: string;
   price: string;
+  priceCard?: string;
 }
 
 export interface SavedModel {
@@ -49,4 +91,12 @@ export interface SavedModel {
   name: string;
   postoData: PostoData;
   prices: PriceItem[];
+  taxRates: TaxRates;
+  invoiceData: InvoiceData; // Salva dados completos da nota (números, impostos, pagamento)
+  fuels: FuelItem[]; // Salva os itens da nota
+  impostos?: { // Legacy support for older saved models
+    federal: string;
+    estadual: string;
+    municipal: string;
+  };
 }

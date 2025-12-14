@@ -17,7 +17,7 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <div className="flex overflow-x-auto no-scrollbar border-b border-slate-200">
+    <div className="flex overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
@@ -28,12 +28,12 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
             className={`
               flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors flex-1 justify-center
               ${isActive 
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' 
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/20' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
               }
             `}
           >
-            <Icon size={16} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
+            <Icon size={16} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'} />
             {tab.label}
           </button>
         );
