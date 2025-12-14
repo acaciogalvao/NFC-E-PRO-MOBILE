@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode } from 'lucide-react';
+import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode, Cloud, CloudOff } from 'lucide-react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, TaxRates, PixKeyType } from '../types';
 import { GoogleGenAI } from "@google/genai";
+import { ApiStatus } from '../App';
 
 interface EditScreenProps {
   postoData: PostoData;
@@ -13,6 +14,7 @@ interface EditScreenProps {
   prices: PriceItem[]; 
   taxRates: TaxRates; // Taxas % para calculo automatico
   onGenerate: () => void;
+  apiStatus: ApiStatus; // Recebe o status da API
 }
 
 const formatCNPJ = (value: string) => {
@@ -95,7 +97,8 @@ const EditScreen: React.FC<EditScreenProps> = ({
   setFuels,
   prices,
   taxRates,
-  onGenerate
+  onGenerate,
+  apiStatus
 }) => {
   const [cnpjError, setCnpjError] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -361,10 +364,25 @@ const EditScreen: React.FC<EditScreenProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Title & Load Action */}
+      {/* Title & Status Indicator */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-700 dark:text-slate-100">Editar Dados</h2>
-        <Layout size={20} className="text-slate-400" />
+        <div className="flex flex-col">
+           <h2 className="text-xl font-bold text-slate-700 dark:text-slate-100">Editar Dados</h2>
+           
+           {/* INDICADOR DE ONLINE/OFFLINE */}
+           <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase mt-1 px-2 py-0.5 rounded-full w-fit transition-colors
+              ${apiStatus.online 
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              }`}>
+              {apiStatus.online ? <Cloud size={10} /> : <CloudOff size={10} />}
+              {apiStatus.online ? 'Sistema Online' : 'Modo Offline'}
+           </div>
+        </div>
+        
+        <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-400">
+          <Layout size={20} />
+        </div>
       </div>
 
       <input 
