@@ -43,12 +43,16 @@ export interface FuelItem {
   total: string;
 }
 
+export type PixKeyType = 'CNPJ' | 'CPF' | 'EMAIL' | 'TELEFONE' | 'ALEATORIA';
+
 export interface PostoData {
   razaoSocial: string;
   cnpj: string;
   inscEstadual: string;
   endereco: string;
-  activeLayoutId: string; 
+  activeLayoutId: string;
+  chavePix?: string;
+  tipoChavePix?: PixKeyType;
 }
 
 export interface TaxRates {
@@ -99,4 +103,17 @@ export interface SavedModel {
     estadual: string;
     municipal: string;
   };
+}
+
+export interface BluetoothRemoteGATTServer {
+  connected: boolean;
+  connect(): Promise<BluetoothRemoteGATTServer>;
+  disconnect(): void;
+}
+
+export interface BluetoothDevice {
+  id: string;
+  name?: string;
+  gatt?: BluetoothRemoteGATTServer;
+  addEventListener(type: string, listener: (event: any) => void): void;
 }

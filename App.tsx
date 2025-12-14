@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Bluetooth, Download, Printer, Save, Trash2, PlusCircle, FileInput, Edit3 } from 'lucide-react';
-import { TabId, PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates } from './types';
+import { Bluetooth, Download, Printer, Save, Trash2, PlusCircle, FileInput, Edit3, Loader2, Wifi } from 'lucide-react';
+import { TabId, PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates, BluetoothDevice } from './types';
 import TabBar from './components/TabBar';
 import EditScreen from './screens/EditScreen';
 import PricesScreen from './screens/PricesScreen';
@@ -41,7 +41,9 @@ const BLANK_POSTO: PostoData = {
   cnpj: '',
   inscEstadual: '',
   endereco: '',
-  activeLayoutId: 'padrao_iccar'
+  activeLayoutId: 'padrao_iccar',
+  chavePix: '',
+  tipoChavePix: 'CNPJ'
 };
 
 // Valores padrão em Porcentagem (%)
@@ -78,6 +80,9 @@ const LOCAL_STORAGE_KEY_LAST_MODEL = 'nfce_pro_last_model_id_v6';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('EDITAR');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [btStatus, setBtStatus] = useState<'DISCONNECTED' | 'SEARCHING' | 'CONNECTED'>('DISCONNECTED');
+  const [btDevice, setBtDevice] = useState<BluetoothDevice | null>(null);
   
   // --- GERENCIAMENTO DE LAYOUTS ---
   const [customLayouts, setCustomLayouts] = useState<LayoutConfig[]>(() => {
@@ -147,14 +152,94 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
+  // --- ACTIONS ---
+
   const handleBluetoothConnect = async () => {
-    alert("Simulação: Bluetooth ligado e buscando dispositivos...");
+    // 1. Verifica suporte básico à API
+    if (!(navigator as any).bluetooth) {
+      alert("Seu navegador não suporta Web Bluetooth.\nTente usar Google Chrome ou MS Edge no Android ou Desktop.");
+      return;
+    }
+
+    // 2. Desconectar se já estiver conectado
+    if (btStatus === 'CONNECTED' && btDevice) {
+      if (confirm(`Desconectar de ${btDevice.name || 'Dispositivo'}?`)) {
+        if (btDevice.gatt?.connected) {
+          btDevice.gatt.disconnect();
+        }
+        setBtDevice(null);
+        setBtStatus('DISCONNECTED');
+      }
+      return;
+    }
+
+    try {
+      setBtStatus('SEARCHING');
+      
+      // 3. Verifica disponibilidade do adaptador (se suportado pelo browser)
+      if ((navigator as any).bluetooth.getAvailability) {
+         const available = await (navigator as any).bluetooth.getAvailability();
+         if (!available) {
+           throw new Error("Adaptador Bluetooth não encontrado ou desativado neste dispositivo.");
+         }
+      }
+      
+      // 4. Solicita dispositivo
+      const device = await (navigator as any).bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['battery_service', '000018f0-0000-1000-8000-00805f9b34fb'] // UUID comum de impressoras
+      });
+
+      if (device) {
+        setBtDevice(device);
+        
+        // 5. Conecta ao GATT
+        const server = await device.gatt?.connect();
+        
+        if (server) {
+          setBtStatus('CONNECTED');
+          alert(`Conectado com sucesso a: ${device.name}`);
+        } else {
+          throw new Error("Conexão GATT falhou. O dispositivo pode estar ocupado ou fora de alcance.");
+        }
+
+        // Listener para desconexão automática
+        device.addEventListener('gattserverdisconnected', () => {
+          setBtStatus('DISCONNECTED');
+          setBtDevice(null);
+          alert("Dispositivo desconectado.");
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      setBtStatus('DISCONNECTED');
+      
+      // Tratamento amigável de erros
+      if (error instanceof Error) {
+        if (error.name === 'NotFoundError') {
+           // Usuário cancelou ou nenhum dispositivo encontrado
+           // Não é necessário alertar se foi cancelamento intencional, mas se for "Adapter not available" sim.
+           if (error.message.includes("available")) {
+              alert("Erro: Adaptador Bluetooth não disponível.");
+           }
+        } else if (error.name === 'SecurityError') {
+           alert("Erro de Segurança: O Bluetooth requer HTTPS ou localhost.");
+        } else {
+           alert("Erro ao conectar: " + error.message);
+        }
+      }
+    }
   };
 
   const handleDownloadPDF = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    // Garante que a aba NOTA está ativa para renderizar o elemento
     if (activeTab !== 'NOTA') {
       setActiveTab('NOTA');
-      setTimeout(() => generatePDF(), 500);
+      // Aguarda renderização do React
+      setTimeout(() => generatePDF(), 800);
     } else {
       generatePDF();
     }
@@ -163,27 +248,33 @@ const App: React.FC = () => {
   const generatePDF = async () => {
     const input = document.getElementById('printable-receipt');
     if (!input) {
-      alert("Comprovante não encontrado.");
+      alert("Erro: Elemento do comprovante não encontrado.");
+      setIsProcessing(false);
       return;
     }
     try {
       const canvas = await html2canvas(input, { scale: 2, useCORS: true, scrollY: -window.scrollY });
       const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = 80;
+      const pdfWidth = 80; // Largura padrão térmica 80mm
       const imgProps = { width: canvas.width, height: canvas.height };
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [pdfWidth, pdfHeight] });
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`NFCe-${invoiceData.numero || 'Nota'}.pdf`);
     } catch (err) {
       console.error(err);
       alert("Erro ao gerar PDF.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handlePrint = () => {
+    // Garante que o comprovante está visível antes de abrir a caixa de diálogo do sistema
     if (activeTab !== 'NOTA') {
       setActiveTab('NOTA');
+      // Pequeno delay para garantir renderização antes de abrir o print
       setTimeout(() => window.print(), 500);
     } else {
       window.print();
@@ -213,15 +304,12 @@ const App: React.FC = () => {
           };
           
           setSavedModels(updatedModels);
-          
-          // Feedback rápido
-          const updatedName = updatedModels[modelIndex].name;
-          alert(`Modelo "${updatedName}" atualizado com sucesso!`);
+          alert(`Modelo "${updatedModels[modelIndex].name}" atualizado com sucesso!`);
           return;
        }
     }
 
-    // 3. Se não tem modelo selecionado (ou ID inválido), CRIA UM NOVO
+    // 3. Se não tem modelo selecionado, CRIA UM NOVO
     const nameDefault = postoData.razaoSocial || `Modelo ${savedModels.length + 1}`;
     const modelName = prompt("Criando NOVO Modelo.\nDigite um nome para salvar:", nameDefault);
     
@@ -235,14 +323,13 @@ const App: React.FC = () => {
       
       setSavedModels(prev => [...prev, newModel]);
       setSelectedModelId(newId);
-      localStorage.setItem(LOCAL_STORAGE_KEY_LAST_MODEL, newId); // Lembra da seleção
+      localStorage.setItem(LOCAL_STORAGE_KEY_LAST_MODEL, newId);
       alert(`Modelo "${modelName}" criado e salvo!`);
     }
   };
 
   const handleRenameModel = () => {
     if (!selectedModelId) return;
-    
     const currentModel = savedModels.find(m => m.id === selectedModelId);
     if (!currentModel) return;
 
@@ -264,21 +351,18 @@ const App: React.FC = () => {
     const model = savedModels.find(m => m.id === modelId);
     if (model) {
       setSelectedModelId(modelId);
-      localStorage.setItem(LOCAL_STORAGE_KEY_LAST_MODEL, modelId); // Salva persistência
+      localStorage.setItem(LOCAL_STORAGE_KEY_LAST_MODEL, modelId);
       
       setPostoData({ ...model.postoData });
       setPrices(model.prices.map(p => ({...p})));
       if (model.taxRates) setTaxRates({ ...model.taxRates });
       
-      // Carrega dados da nota
       if (model.invoiceData) {
         setInvoiceData({ ...model.invoiceData });
       } else if (model.impostos) {
-         // Fallback para legado
          setInvoiceData(prev => ({ ...prev, impostos: model.impostos || DEFAULT_IMPOSTOS_PERCENTAGES }));
       }
       
-      // Carrega combustíveis
       if (model.fuels) {
         setFuels(model.fuels.map(f => ({...f})));
       } else {
@@ -311,6 +395,14 @@ const App: React.FC = () => {
     }
   };
 
+  const handleConfirmPayment = () => {
+    if (confirm("Confirmar o recebimento do pagamento e finalizar a nota?")) {
+       alert("Pagamento registrado com sucesso!");
+       // Reinicia o app para o próximo cliente (sem pedir confirmação novamente)
+       handleNewModel(false);
+    }
+  };
+
   const randomDigits = (n: number) => {
     let str = '';
     for (let i = 0; i < n; i++) str += Math.floor(Math.random() * 10);
@@ -324,7 +416,6 @@ const App: React.FC = () => {
     
     const numero = invoiceData.numero || Math.floor(10000 + Math.random() * 90000).toString(); 
     const serie = invoiceData.serie || "1";
-    
     const protocolo = invoiceData.protocolo || `321${today.getFullYear().toString().substr(2)}${randomDigits(10)}`;
     const uf = '21'; 
     const aamm = today.getFullYear().toString().substr(2) + (today.getMonth() + 1).toString().padStart(2, '0');
@@ -335,7 +426,6 @@ const App: React.FC = () => {
     const preKey = `${uf}${aamm}${cnpjClean}${mod}${serie}${numero}${emi}${cnf}`;
     const dv = Math.floor(Math.random() * 10).toString();
     const chaveAcesso = invoiceData.chaveAcesso || `${preKey}${dv}`.replace(/(.{4})/g, '$1 ').trim();
-    
     const hexHash = Array.from({length: 40}, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
     const params = `${chaveAcesso.replace(/\s/g, '')}|2|1|1|${hexHash}`;
     const urlQrCode = invoiceData.urlQrCode || `http://www.nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp?p=${params}`;
@@ -363,7 +453,7 @@ const App: React.FC = () => {
             fuels={fuels}
             setFuels={setFuels}
             prices={prices}
-            taxRates={taxRates} // Passa taxas %
+            taxRates={taxRates}
             onGenerate={() => { handleGenerateInvoice(); setActiveTab('PAGAMENTO'); }}
           />
         );
@@ -394,6 +484,7 @@ const App: React.FC = () => {
             postoData={postoData} 
             invoiceData={invoiceData}
             setInvoiceData={setInvoiceData}
+            onConfirm={handleConfirmPayment}
           />
         );
       case 'API':
@@ -409,12 +500,33 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight">NFC-e Pro</h1>
-            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">V6.0</span>
+            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v1.0</span>
           </div>
           <div className="flex items-center gap-3 text-blue-400">
-            <button onClick={handleBluetoothConnect}><Bluetooth size={18} /></button>
-            <button onClick={handleDownloadPDF}><Download size={18} /></button>
-            <button onClick={handlePrint}><Printer size={18} /></button>
+            <button 
+              onClick={handleBluetoothConnect}
+              className={`transition-colors p-2 rounded-full ${btStatus === 'CONNECTED' ? 'bg-blue-600 text-white' : btStatus === 'SEARCHING' ? 'bg-blue-900/50 text-blue-300 animate-pulse' : 'hover:bg-slate-800'}`}
+              title={btStatus === 'CONNECTED' ? "Conectado (Clique para desconectar)" : "Conectar Bluetooth"}
+            >
+              <Bluetooth size={18} />
+            </button>
+            
+            <button 
+              onClick={handleDownloadPDF} 
+              className={`transition-colors p-2 rounded-full hover:bg-slate-800 ${isProcessing ? 'opacity-50 cursor-wait' : ''}`}
+              title="Baixar PDF"
+              disabled={isProcessing}
+            >
+              {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            </button>
+            
+            <button 
+              onClick={handlePrint} 
+              className="hover:bg-slate-800 p-2 rounded-full transition-colors"
+              title="Imprimir (Selecionar Impressora)"
+            >
+              <Printer size={18} />
+            </button>
           </div>
         </div>
 
@@ -436,7 +548,6 @@ const App: React.FC = () => {
               </select>
             </div>
             
-            {/* Botão Novo */}
             <button 
               onClick={() => handleNewModel(true)}
               className="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 border-l border-slate-500"
@@ -445,7 +556,6 @@ const App: React.FC = () => {
               <PlusCircle size={16} />
             </button>
 
-            {/* Botão Salvar (Cria ou Atualiza) */}
             <button 
               onClick={handleSaveModel}
               className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 flex items-center gap-1 border-l border-green-700"
@@ -454,7 +564,6 @@ const App: React.FC = () => {
               <Save size={16} />
             </button>
             
-            {/* Controles do Modelo Selecionado (Renomear e Excluir) */}
             {savedModels.length > 0 && selectedModelId && (
               <>
                 <button
@@ -475,7 +584,6 @@ const App: React.FC = () => {
               </>
             )}
             
-            {/* Fecha canto arredondado se não tiver modelo selecionado */}
             {(!savedModels.length || !selectedModelId) && <div className="w-1 bg-transparent rounded-r"></div>}
           </div>
         </div>
@@ -488,6 +596,14 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-y-auto p-4 pb-24 no-scrollbar">
         {renderContent()}
       </main>
+      
+      {/* Indicador de processamento para download */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center flex-col text-white print:hidden">
+           <Loader2 size={48} className="animate-spin mb-4" />
+           <p className="font-bold">Gerando PDF...</p>
+        </div>
+      )}
     </div>
   );
 };
