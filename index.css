@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Custom Utilities */
+.font-mono {
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* Hide scrollbar for clean mobile look */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* PRINT STYLES - CRITICAL FIX FOR CUT OFF CONTENT */
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+  
+  html, body {
+     height: auto;
+     min-height: 100%;
+     overflow: visible !important;
+     margin: 0 !important;
+     padding: 0 !important;
+     background: white;
+  }
+
+  /* Oculta tudo por padrão */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Mostra apenas o cupom */
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+
+  /* Posicionamento Absoluto para ignorar scroll da tela e containers pais */
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white;
+    overflow: visible !important;
+  }
+
+  /* Garante que elementos de UI não ocupem espaço */
+  #root > div > header, 
+  #root > div > nav,
+  #root > div > div.sticky,
+  button, .print\:hidden {
+    display: none !important;
+  }
+}
