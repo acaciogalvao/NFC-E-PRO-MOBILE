@@ -73,6 +73,7 @@ export interface InvoiceData {
   protocolo: string;
   urlQrCode: string;
   formaPagamento: PaymentMethod;
+  detalheCodigo?: string; // Novo campo para o código específico do Guimarães
   // Armazena VALORES MONETÁRIOS (R$) exatos digitados pelo usuário
   impostos: {
     federal: string;

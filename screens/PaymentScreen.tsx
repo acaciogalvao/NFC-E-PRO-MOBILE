@@ -210,7 +210,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ fuels, postoData, invoice
     <div className="space-y-6 text-center pb-6">
       
       {shouldShowTotal && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 animate-slide-down">
           <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
              Valor Total a Pagar ({invoiceData.formaPagamento})
           </p>
@@ -253,7 +253,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ fuels, postoData, invoice
         
         {/* Camada de Sucesso Overlay */}
         {paymentSuccess && (
-          <div className="absolute inset-0 bg-green-500 z-50 flex flex-col items-center justify-center text-white animate-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-green-500 z-50 flex flex-col items-center justify-center text-white animate-zoom-in">
             <CheckCircle size={64} className="mb-4" />
             <h3 className="text-2xl font-bold">Pagamento Confirmado!</h3>
             <p className="text-sm opacity-90 mt-1">Gerando nota fiscal...</p>

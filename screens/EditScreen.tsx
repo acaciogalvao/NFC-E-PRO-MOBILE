@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode, Save, Database, Unlock, ArrowRight, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode, Save, Database, Unlock, ArrowRight, RefreshCw, Code2 } from 'lucide-react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, TaxRates, PixKeyType } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
@@ -733,7 +733,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Dados da Operação</h4>
            <div className="grid grid-cols-2 gap-3">
              <input placeholder="PLACA" className="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-100 p-2 rounded text-sm placeholder:text-xs" value={invoiceData.placa} onChange={e => setInvoiceData({...invoiceData, placa: e.target.value})} />
-             <input placeholder="KM" className="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-100 p-2 rounded text-sm placeholder:text-xs" value={invoiceData.km} onChange={e => setInvoiceData({...invoiceData, km: e.target.value})} />
+             <input placeholder="HODÔMETRO" className="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-100 p-2 rounded text-sm placeholder:text-xs" value={invoiceData.km} onChange={e => setInvoiceData({...invoiceData, km: e.target.value})} />
              <input placeholder="OPERADOR" className="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-100 p-2 rounded text-sm placeholder:text-xs" value={invoiceData.operador} onChange={e => setInvoiceData({...invoiceData, operador: e.target.value})} />
              <input placeholder="MOTORISTA" className="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-100 p-2 rounded text-sm placeholder:text-xs" value={invoiceData.motorista} onChange={e => setInvoiceData({...invoiceData, motorista: e.target.value})} />
            </div>
@@ -796,6 +796,16 @@ const EditScreen: React.FC<EditScreenProps> = ({
                 className="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded p-2 text-[10px] text-slate-500 dark:text-slate-400 cursor-not-allowed font-mono h-14 resize-none leading-tight"
                 value={invoiceData.chaveAcesso} 
                 placeholder="Gerada automaticamente ao clicar em Gerar NFC-e..."
+              />
+           </div>
+
+           <div>
+              <label className="text-[10px] text-slate-400 dark:text-slate-500 block mb-1">Código de Detalhe</label>
+              <input 
+                readOnly 
+                className="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded p-2 text-[10px] text-slate-500 dark:text-slate-400 cursor-not-allowed font-mono truncate"
+                value={invoiceData.detalheCodigo || ''} 
+                placeholder="Gerado automaticamente ao clicar em Gerar NFC-e..."
               />
            </div>
 

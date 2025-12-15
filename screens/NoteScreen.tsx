@@ -26,8 +26,6 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
   const { posto, invoice, calculations } = data;
   const { rawTotal, valTotalTributos, valFederal, valEstadual, valMunicipal, qrCodeImageUrl, paymentMethodLabel, activeFuels } = calculations;
   const [authDate, authTime] = invoice.dataEmissao ? invoice.dataEmissao.split(' ') : ['---', '---'];
-
-  // Limpa o protocolo para exibir apenas os números
   const cleanProtocol = invoice.protocolo ? invoice.protocolo.replace(/[^0-9]/g, '').slice(0, 15) : '---';
 
   // Linha Separadora Preta Sólida (Igual Impressora Térmica)
@@ -36,48 +34,31 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
   );
 
   return (
-    <div className="flex flex-col bg-white text-black p-2 pb-10 shadow-lg max-w-[340px] mx-auto print:max-w-full print:shadow-none print:p-0 print:m-0 print:pb-0" 
+    <div className="flex flex-col bg-white text-black p-2 pb-10 shadow-lg max-w-[340px] mx-auto print:max-w-full print:shadow-none print:p-0 print:m-0 print:pb-20 print:h-auto" 
          style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '10px', lineHeight: '1.2' }}>
       
       {/* HEADER */}
-      
-      {/* 1. Título NFC-e: Centralizado, Grande, Negrito e Itálico */}
-      <div className="text-center font-bold italic text-[16px] mb-2 text-black">
-        NFC-e
-      </div>
-      
-      {/* 2. Razão Social */}
-      <div className="text-left font-bold text-[11px] uppercase mb-0.5 text-black">
-        {posto.razaoSocial || 'POSTO EXEMPLO LTDA'}
-      </div>
-
-      {/* 3. CNPJ e IE: Justificados (um em cada ponta) */}
+      <div className="text-center font-bold italic text-[16px] mb-2 text-black">NFC-e</div>
+      <div className="text-left font-bold text-[11px] uppercase mb-0.5 text-black">{posto.razaoSocial || 'POSTO EXEMPLO LTDA'}</div>
       <div className="flex justify-between items-center text-[10px] uppercase mb-0.5 font-bold text-black">
          <span>CNPJ: {posto.cnpj}</span>
          <span>Insc. Estadual: {posto.inscEstadual}</span>
       </div>
-
-      {/* 4. Endereço */}
-      <div className="text-left text-[10px] uppercase whitespace-pre-line font-normal mb-1 text-black leading-tight">
-         {posto.endereco || 'ENDEREÇO NÃO INFORMADO'}
-      </div>
+      <div className="text-left text-[10px] uppercase whitespace-pre-line font-normal mb-1 text-black leading-tight">{posto.endereco || 'ENDEREÇO NÃO INFORMADO'}</div>
 
       <Separator />
 
-      {/* 5. DANFE Box */}
       <div className="text-center text-[10px] mt-0.5 font-bold leading-tight text-black">
          DANFE NFC-e - Documento Auxiliar de Nota Fiscal<br/>de Consumidor Eletrônica
       </div>
-      
       <div className="text-center text-[9px] mt-0.5 mb-1 font-normal text-black">
          NFC-e não permite aproveitamento de crédito de ICMS
       </div>
 
       <Separator />
 
-      {/* ITEMS HEADER */}
       <div className="w-full my-0.5">
-         <div className="flex font-bold text-[9px] mb-1 pb-0.5 border-b border-black">
+         <div className="flex font-bold text-[9px] mb-0.5 pb-0.5 border-b border-black items-end">
             <span className="w-[20px]">It.</span>
             <span className="w-[35px]">Cód.</span>
             <span className="flex-1">Descrição</span>
@@ -85,14 +66,12 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
             <span className="w-[45px] text-right">Vl.Unit</span>
             <span className="w-[45px] text-right">Vl.Total</span>
          </div>
-         
-         {/* ITEMS LIST */}
-         <div className="flex flex-col gap-0.5">
+         <div className="flex flex-col gap-0.5 pt-0.5">
            {activeFuels.map((item: any, idx: number) => (
-             <div key={idx} className="flex text-[9px] items-start font-normal">
+             <div key={idx} className="flex text-[9px] items-start font-normal leading-tight">
                 <span className="w-[20px]">{idx + 1}</span>
-                <span className="w-[35px] truncate pr-1">{item.code}</span>
-                <span className="flex-1 truncate pr-1 uppercase">{item.name}</span>
+                <span className="w-[35px] pr-1 break-all">{item.code}</span>
+                <span className="flex-1 pr-1 uppercase whitespace-normal">{item.name}</span>
                 <span className="w-[45px] text-right whitespace-nowrap">{to3Decimals(item.q)} {item.unit}</span>
                 <span className="w-[45px] text-right">{to3Decimals(item.p)}</span>
                 <span className="w-[45px] text-right">{toCurrency(item.t)}</span>
@@ -103,7 +82,6 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
 
       <Separator />
 
-      {/* TOTAIS */}
       <div className="flex justify-between text-[10px] mt-0.5 font-normal">
          <span>Qtd. Total de Itens</span>
          <span>{activeFuels.length}</span>
@@ -125,7 +103,6 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
          <span>{toCurrency(rawTotal)}</span>
       </div>
       
-      {/* Total Tributos - Separado por linha pontilhada ou sólida fina */}
       <div className="border-t border-black border-dashed my-1"></div>
       
       <div className="flex justify-between text-[9px]">
@@ -133,11 +110,7 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
          <span>{toCurrency(valTotalTributos)}</span>
       </div>
 
-      {/* INFO ADICIONAIS */}
-      <div className="text-center text-[9px] font-bold uppercase mt-2 mb-0.5">
-         INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE
-      </div>
-      
+      <div className="text-center text-[9px] font-bold uppercase mt-2 mb-0.5">INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE</div>
       <div className="text-center text-[9px] mb-1 leading-tight">
          Total Impostos Federais: R$ {toCurrency(valFederal)}<br/>
          Total Impostos Estaduais: R$ {toCurrency(valEstadual)}<br/>
@@ -146,42 +119,22 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
 
       <Separator />
 
-      {/* EMISSÃO */}
-      <div className="text-center mb-0.5 font-bold text-[10px] uppercase tracking-wide">
-         EMISSÃO NORMAL
-      </div>
-      
+      <div className="text-center mb-0.5 font-bold text-[10px] uppercase tracking-wide">EMISSÃO NORMAL</div>
       <div className="mb-1">
-        <div className="text-center text-[9px] font-bold mb-0.5">
-           N.º: {invoice.numero} Série: {invoice.serie} Emissão: {authDate} {authTime}
-        </div>
-        <div className="text-center text-[9px] font-bold mb-1">
-           Via Consumidor
-        </div>
-        
-        <div className="text-center mb-0.5 text-[9px]">
-           Consulte pela Chave de Acesso em:
-        </div>
-        <div className="text-center mb-1 text-[8px] break-all leading-tight px-1 font-normal">
-           http://www.nfce.sefaz.ma.gov.br/portal/consultarNFe.do?method=preFilterCupom
-        </div>
-        
+        <div className="text-center text-[9px] font-bold mb-0.5">N.º: {invoice.numero} Série: {invoice.serie} Emissão: {authDate} {authTime}</div>
+        <div className="text-center text-[9px] font-bold mb-1">Via Consumidor</div>
+        <div className="text-center mb-0.5 text-[9px]">Consulte pela Chave de Acesso em:</div>
+        <div className="text-center mb-1 text-[8px] break-all leading-tight px-1 font-normal">http://www.nfce.sefaz.ma.gov.br/portal/consultarNFe.do?method=preFilterCupom</div>
         <div className="text-center font-bold mb-0.5 text-[9px] uppercase">CHAVE DE ACESSO</div>
-        <div className="text-center text-[9px] mb-1 font-sans font-bold leading-tight px-2 tracking-wide">
-            {invoice.chaveAcesso.replace(/\s/g, '').match(/.{1,4}/g)?.join(' ')}
-        </div>
+        <div className="text-center text-[9px] mb-1 font-sans font-bold leading-tight px-2 tracking-wide">{invoice.chaveAcesso.replace(/\s/g, '').match(/.{1,4}/g)?.join(' ')}</div>
       </div>
 
       <Separator />
 
-      {/* CONSUMIDOR */}
-      <div className="text-center font-bold uppercase py-1 text-[10px]">
-         {layout.customTexts.consumerLabel || 'CONSUMIDOR NÃO IDENTIFICADO'}
-      </div>
+      <div className="text-center font-bold uppercase py-1 text-[10px]">{layout.customTexts.consumerLabel || 'CONSUMIDOR NÃO IDENTIFICADO'}</div>
 
       <Separator />
 
-      {/* QR CODE */}
       <div className="text-center font-bold mt-1 mb-1 text-[9px]">Consulta via leitor de QR Code</div>
       <div className="flex justify-center my-1">
          {qrCodeImageUrl ? (
@@ -191,16 +144,10 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
          )}
       </div>
 
-      <div className="text-center text-[9px] font-normal tracking-tight mb-2">
-         Protocolo Autorização: {cleanProtocol} {authDate} {authTime}
-      </div>
-      
+      <div className="text-center text-[9px] font-normal tracking-tight mb-2">Protocolo Autorização: {cleanProtocol} {authDate} {authTime}</div>
       {invoice.placa && (
-         <div className="text-center font-bold text-[10px] mb-2 border-t border-black pt-1 border-dashed">
-             PLACA: {invoice.placa} KM: {invoice.km}
-         </div>
+         <div className="text-center font-bold text-[10px] mb-2 border-t border-black pt-1 border-dashed">PLACA: {invoice.placa} KM: {invoice.km}</div>
       )}
-      
       <div className="h-4 print:hidden"></div>
     </div>
   );
@@ -220,22 +167,14 @@ const ThermalRealReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ dat
   );
 
   return (
-    <div className={`flex flex-col bg-white text-black font-mono text-[10px] leading-none p-2 shadow-lg max-w-[320px] mx-auto uppercase print:max-w-full print:shadow-none print:p-0`}>
-      
-      {/* 1. CABEÇALHO EMPRESA */}
+    <div className={`flex flex-col bg-white text-black font-mono text-[10px] leading-none p-2 shadow-lg max-w-[320px] mx-auto uppercase print:max-w-full print:shadow-none print:p-0 print:pb-20 print:h-auto`}>
       <div className="text-center mb-2">
          {posto.cnpj && <div>CNPJ: {posto.cnpj.replace(/\D/g,'').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")}</div>}
          <div className="font-bold whitespace-pre-line">{posto.razaoSocial}</div>
          <div className="whitespace-pre-line leading-tight mt-1">{posto.endereco}</div>
       </div>
-
-      <div className="text-center mb-1 font-bold whitespace-pre-wrap">
-         {layout.customTexts.headerTitle}
-      </div>
-
+      <div className="text-center mb-1 font-bold whitespace-pre-wrap">{layout.customTexts.headerTitle}</div>
       <DashedLine />
-
-      {/* 2. ITENS (LAYOUT EPSON) */}
       <div className="w-full">
          <div className="flex mb-1">
             <span className="w-[30px]">COD</span>
@@ -246,9 +185,7 @@ const ThermalRealReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ dat
             <span className="flex-1">QTD UN x VL UNIT R$</span>
             <span className="w-[80px] text-right">(VL TRIB)</span>
          </div>
-
          <DashedLine />
-         
          {activeFuels.map((item: any, idx: number) => (
              <div key={idx} className="mb-1">
                 <div className="flex">
@@ -257,17 +194,12 @@ const ThermalRealReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ dat
                    <span className="w-[80px] text-right">{toCurrency(item.t)}</span>
                 </div>
                 <div className="flex text-[9px] pl-[30px]">
-                   <span className="flex-1">
-                      {to3Decimals(item.q).replace('.',',')} {item.unit} x {to3Decimals(item.p).replace('.',',')}
-                   </span>
+                   <span className="flex-1">{to3Decimals(item.q).replace('.',',')} {item.unit} x {to3Decimals(item.p).replace('.',',')}</span>
                 </div>
              </div>
          ))}
       </div>
-
       <DashedLine />
-
-      {/* 3. TOTAIS */}
       <div className="flex justify-between font-bold">
          <span>QTD. TOTAL DE ITENS</span>
          <span>{activeFuels.length}</span>
@@ -288,49 +220,20 @@ const ThermalRealReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ dat
          <span>Troco R$</span>
          <span>0,00</span>
       </div>
-
       <DashedLine />
-
-      {/* 4. IMPOSTOS E INFOS */}
       <div className="text-center mb-1">
-         {layout.customTexts.footerMessage}<br/>
-         http://www.nfce.sefaz.ma.gov.br
+         {layout.customTexts.footerMessage}<br/>http://www.nfce.sefaz.ma.gov.br
       </div>
-      <div className="text-center font-bold mb-1 break-all px-4">
-         {invoice.chaveAcesso.replace(/\s/g, '')}
-      </div>
-
-      <div className="text-center mb-1">
-         {layout.customTexts.consumerLabel}
-      </div>
-
-      <div className="text-center mb-2">
-         NFC-e nº {invoice.numero} Série {invoice.serie} {authDate} {authTime}
-      </div>
-      <div className="text-center mb-2">
-         Protocolo de Autorização: {invoice.protocolo}
-      </div>
-
+      <div className="text-center font-bold mb-1 break-all px-4">{invoice.chaveAcesso.replace(/\s/g, '')}</div>
+      <div className="text-center mb-1">{layout.customTexts.consumerLabel}</div>
+      <div className="text-center mb-2">NFC-e nº {invoice.numero} Série {invoice.serie} {authDate} {authTime}</div>
+      <div className="text-center mb-2">Protocolo de Autorização: {invoice.protocolo}</div>
       <div className="flex justify-center mb-2">
-         {qrCodeImageUrl ? (
-           <img src={qrCodeImageUrl} alt="QR Code" className="w-24 h-24 object-contain rendering-pixelated" />
-         ) : (
-           <div className="w-24 h-24 border border-dashed flex items-center justify-center">QR CODE</div>
-         )}
+         {qrCodeImageUrl ? <img src={qrCodeImageUrl} alt="QR Code" className="w-24 h-24 object-contain rendering-pixelated" /> : <div className="w-24 h-24 border border-dashed flex items-center justify-center">QR CODE</div>}
       </div>
-
-      <div className="text-center text-[9px]">
-         Trib Aprox R$: {toCurrency(valFederal)} Fed, {toCurrency(valEstadual)} Est, {toCurrency(valMunicipal)} Mun
-      </div>
-      <div className="text-center text-[9px] mt-1">
-         Fonte: IBPT
-      </div>
-      
-      {invoice.placa && (
-         <div className="text-center font-bold mt-2 border-t border-black border-dashed pt-1">
-            PLACA: {invoice.placa} | KM: {invoice.km}
-         </div>
-      )}
+      <div className="text-center text-[9px]">Trib Aprox R$: {toCurrency(valFederal)} Fed, {toCurrency(valEstadual)} Est, {toCurrency(valMunicipal)} Mun</div>
+      <div className="text-center text-[9px] mt-1">Fonte: IBPT</div>
+      {invoice.placa && <div className="text-center font-bold mt-2 border-t border-black border-dashed pt-1">PLACA: {invoice.placa} | KM: {invoice.km}</div>}
     </div>
   );
 };
@@ -343,141 +246,158 @@ const GuimaraesReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data,
   const { rawTotal, valTotalTributos, valFederal, valEstadual, valMunicipal, qrCodeImageUrl, paymentMethodLabel, activeFuels } = calculations;
   const [authDate, authTime] = invoice.dataEmissao ? invoice.dataEmissao.split(' ') : ['---', '---'];
 
-  // Função auxiliar para replicar o separador exato da foto
+  // Separador pontilhado denso
   const DashedSeparator = () => (
-    <div className="w-full border-b border-dashed border-black my-1 opacity-70" style={{ borderWidth: '1px' }}></div>
+    <div className="w-full border-b border-dashed border-black my-1" style={{ borderWidth: '1px', borderStyle: 'dashed' }}></div>
   );
 
   return (
-    <div className="flex flex-col bg-white text-black font-mono text-[10px] leading-tight p-2 shadow-lg max-w-[320px] mx-auto uppercase tracking-tighter print:max-w-full print:shadow-none print:p-0">
+    <div className="flex flex-col bg-[#fcfcfc] text-black p-2 shadow-lg max-w-[320px] mx-auto uppercase tracking-tighter print:max-w-full print:shadow-none print:p-0 print:pb-20 print:h-auto"
+         style={{ fontFamily: "'Courier New', Courier, monospace", fontSize: '10px', lineHeight: '1.2' }}>
       
-      {/* --- CABEÇALHO --- */}
-      <div className="text-left mb-1">
-         {posto.cnpj && <div>CNPJ: {posto.cnpj.replace(/\D/g,'').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")}  IE: {posto.inscEstadual || '---'}</div>}
-         <div className="font-bold my-1 whitespace-pre-line leading-tight">{posto.razaoSocial || 'AUTO POSTO GUIMARAES LTDA'}</div>
-         <div className="whitespace-pre-line leading-tight">
-            {posto.endereco || 'IMPERATRIZ - MA'}
-         </div>
+      {/* CABEÇALHO */}
+      <div className="text-center mb-1 leading-tight font-bold">
+         {posto.cnpj && <div className="mb-0">CNPJ: {posto.cnpj.replace(/\D/g,'').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")}</div>}
+         <div className="font-bold my-0 whitespace-pre-line">{posto.razaoSocial}</div>
+         <div className="whitespace-pre-line">{posto.endereco}</div>
       </div>
 
-      <div className="text-center mt-2 mb-1 whitespace-pre-wrap">
+      {/* TÍTULO IDENTICO A FOTO */}
+      <div className="text-center mb-1 font-bold leading-tight" style={{ fontSize: '11px' }}>
          {layout.customTexts.headerTitle}
       </div>
 
       <DashedSeparator />
 
-      {/* --- ITENS --- */}
-      <div className="w-full mb-1">
-         <div className="flex justify-between mb-1 font-bold">
-            <span>CODIGO</span>
-            <span className="text-center">DESCRIÇÃO</span>
-            <span>TOTAL</span>
+      {/* ITEMS HEADERS - EXATAMENTE COMO NA FOTO */}
+      <div className="w-full mb-1 font-bold">
+         <div className="flex mb-0">
+            <span className="w-[50px]">CODIGO</span>
+            <span className="flex-1 text-center pr-8">DESCRIÇÃO</span>
+            <span className="w-[50px] text-right">TOTAL</span>
          </div>
-         <div className="flex justify-between mb-1 text-[9px]">
-            <span>QTD. UN.</span>
-            <span className="text-center">VL UNIT(R$)</span>
-            <span>VL TR(R$)</span>
+         <div className="flex mb-1 justify-between">
+            <span className="pl-[20px]">QTD. UN.</span>
+            <span className="pr-[50px]">VL. UNIT(R$)</span>
          </div>
          
          <DashedSeparator />
          
-         {activeFuels.map((item: any, idx: number) => (
-             <div key={idx} className="mb-2">
-                {/* Linha 1: Código + Nome + Total */}
-                <div className="flex justify-between">
-                   <div className="flex gap-2 overflow-hidden">
-                     <span className="w-4">{idx + 1}</span>
-                     <span className="truncate">{item.name}</span>
-                   </div>
-                   <span className="text-right whitespace-nowrap">{toCurrency(item.t)}</span>
+         {activeFuels.map((item: any, idx: number) => {
+             // Cálculo aproximado de tributos por item (proporcional ao total)
+             const itemPct = item.t / rawTotal;
+             const iFed = valFederal * itemPct;
+             const iEst = valEstadual * itemPct;
+             
+             return (
+             <div key={idx} className="mb-1 leading-tight">
+                {/* Linha 1: Código + Descrição */}
+                <div className="flex">
+                   <div className="w-[40px]">{item.code}</div>
+                   <div className="flex-1">{item.name}</div>
                 </div>
-                {/* Linha 2: Quantidade + Unidade + Preço */}
-                <div className="flex justify-between text-[10px]">
-                   <div className="flex gap-1">
-                      <span>{to3Decimals(item.q).replace('.',',')}</span>
-                      <span>{item.unit}</span>
-                      <span className="mx-1">x</span>
-                      <span>{to3Decimals(item.p).replace('.',',')}</span>
-                   </div>
-                   {/* Espaço para info tributária opcional se houvesse */}
+                {/* Linha 2: Qtd, Un, Unitário, Total */}
+                <div className="flex justify-between pl-[10px]">
+                    <div className="flex gap-2">
+                      <span>{to3Decimals(item.q).replace('.',',')} {item.unit}</span>
+                      <span className="pl-4">{to3Decimals(item.p).replace('.',',')}</span>
+                    </div>
+                    <span className="font-bold">{toCurrency(item.t)}</span>
+                </div>
+                {/* Linha 3: Tributos aproximados por item (conforme foto) */}
+                <div className="text-[9px] pl-[30px] font-normal">
+                   Trib. R$: {toCurrency(iFed)} Federal e {toCurrency(iEst)} Estadual
                 </div>
              </div>
-         ))}
+             );
+         })}
       </div>
 
       <DashedSeparator />
 
-      {/* --- TOTAIS --- */}
-      <div className="flex justify-between font-bold text-[10px]">
+      {/* TOTAIS IDENTICOS A FOTO */}
+      <div className="flex justify-between font-bold">
          <span>Qtde. Total de Itens</span>
-         <span>{activeFuels.length}</span>
+         <span>{to3Decimals(activeFuels.length).replace(',000',',000')}</span> 
+         {/* Nota: Na foto o total de itens parece formatado como decimal, estranho, mas mantive o padrão numérico */}
       </div>
-      <div className="flex justify-between font-bold text-[11px] mt-1">
+      <div className="flex justify-between font-bold mt-0" style={{ fontSize: '11px' }}>
          <span>Valor Total R$</span>
          <span>{toCurrency(rawTotal)}</span>
       </div>
       
-      <div className="flex justify-between mt-2 font-bold">
+      <div className="flex justify-between mt-0 font-bold">
          <span>FORMA PAGAMENTO</span>
-         <span>Valor Pago R$</span>
+         <span>VALOR PAGO R$</span>
       </div>
-      <div className="flex justify-between">
+      <div className="flex justify-between font-bold">
          <span>{paymentMethodLabel === 'DINHEIRO' ? 'Dinheiro' : paymentMethodLabel}</span>
          <span>{toCurrency(rawTotal)}</span>
       </div>
 
       <DashedSeparator />
 
-      {/* --- INFO FISCAL / RODAPÉ --- */}
-      <div className="text-center mb-1">
-         {layout.customTexts.footerMessage}
+      {/* RODAPÉ EXATO */}
+      <div className="text-center mb-0 font-bold">
+         Consulte pela Chave de Acesso em
       </div>
-      <div className="text-center text-[9px] mb-1 break-all">
+      <div className="text-center mb-1 font-bold break-all leading-tight px-2">
          http://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp
       </div>
-      <div className="text-center font-bold mb-1 break-all px-1 tracking-widest text-[9px]">
-         {invoice.chaveAcesso.replace(/\s/g, '')}
+      
+      <div className="text-center mb-1 break-all px-1 tracking-widest text-[11px] font-bold leading-tight">
+         {invoice.chaveAcesso.replace(/\s/g, '').match(/.{1,4}/g)?.join(' ')}
       </div>
 
-      <div className="text-center font-bold mt-2 mb-1">
+      <div className="text-center font-bold mt-2 mb-2 border-y border-dashed border-black py-1 text-[11px]">
          {layout.customTexts.consumerLabel}
       </div>
 
-      <div className="text-center mb-1">
-         NFC-e nº: {invoice.numero} Série: {invoice.serie} {authDate} {authTime}
+      <div className="text-center font-bold mb-0 mt-1 text-[11px]">
+         NFC-e NR: {invoice.numero} Série:{invoice.serie} {authDate} {authTime}
       </div>
-      <div className="text-center mb-2">
+      <div className="text-center font-bold mb-0">
          Protocolo de Autorização: {invoice.protocolo}
-         <br/>Data de Autorização: {authDate} {authTime}
+      </div>
+      <div className="text-center font-bold mb-1">
+         Data de Autorização: {authDate} {authTime}
       </div>
 
-      <div className="flex justify-center mb-2">
+      <div className="flex justify-center mb-1 mt-2">
          {qrCodeImageUrl ? (
-           <img src={qrCodeImageUrl} alt="QR Code" className="w-24 h-24 object-contain rendering-pixelated border border-white" />
+           <img src={qrCodeImageUrl} alt="QR Code" className="w-32 h-32 object-contain rendering-pixelated" />
          ) : (
-           <div className="w-24 h-24 border border-dashed flex items-center justify-center">QR CODE</div>
+           <div className="w-32 h-32 border border-dashed flex items-center justify-center">QR CODE</div>
          )}
       </div>
 
-      <div className="text-left text-[9px] mt-1">
-         {layout.customTexts.taxLabel} Total R$ {toCurrency(valTotalTributos)}
-         <br/>
-         R$ {toCurrency(valFederal)} Federal e {toCurrency(valEstadual)} Estadual
+      <div className="text-center text-[10px] mt-2 font-bold leading-tight">
+         Tributos Incidentes (Lei Federal 12.741/12)<br/>
+         <span className="text-[11px]">Total R$ {toCurrency(valTotalTributos)}</span>
+      </div>
+      <div className="text-center text-[10px] mt-0 font-bold">
+         R$: {toCurrency(valFederal)} Federal e {toCurrency(valEstadual)} Estadual
       </div>
 
-      {invoice.placa && (
-         <div className="text-left font-bold mt-2 border-t border-dashed border-black pt-1">
-            PLACA: {invoice.placa} | KM: {invoice.km} | MOT: {invoice.motorista}
-         </div>
-      )}
+      <DashedSeparator />
 
-      {/* Rodapé da Software House conforme foto */}
-      <div className="text-right mt-4 text-[9px] font-bold transform -rotate-90 origin-bottom-right absolute bottom-20 -right-4 hidden">
-        Adaptive Business - 3.23.02.15 - www.adaptive.com.br
-      </div>
-      
-      <div className="text-right mt-6 text-[8px] opacity-70">
-         Adaptive Business - 3.23.02.15 - www.adaptive.com.br
+      {/* Informações Finais (Rodapé Autêntico) */}
+      <div className="font-bold text-[10px] leading-tight mt-1 space-y-0.5 uppercase">
+         {/* USO DO CÓDIGO DINÂMICO APENAS NO MODELO GUIMARÃES */}
+         <div>{invoice.detalheCodigo || '#CF:B31 EI0550800.620 EF0550927.830 V127.206'}</div>
+         <div>Codigo:[030] IE/RG: []</div>
+         {invoice.placa && (
+            <div>PLACA: {invoice.placa} ODON: {invoice.km}</div>
+         )}
+         {invoice.motorista && (
+            <div>MOT: {invoice.motorista}</div>
+         )}
+         {invoice.operador && (
+            <div className="text-right">REQ: {invoice.operador}</div>
+         )}
+         <div className="text-center mt-2">100 - Autorizado o uso da NF-e</div>
+         <div className="text-center text-[12px] mt-1">DANFE REIMPRESSÃO</div>
+         <div className="text-right mt-2 normal-case">Adaptive Business - 3.23.02.15 - www.adaptive.com.br</div>
       </div>
 
     </div>

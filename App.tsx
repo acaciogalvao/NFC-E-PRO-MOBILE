@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bluetooth, Download, Printer, Save, Trash2, Loader2, Check, AlertCircle, Info, FilePlus, Edit3, FolderOpen, X, ChevronRight, Database, AlertTriangle, Type } from 'lucide-react';
+import { Bluetooth, Download, Printer, Save, Trash2, Loader2, Check, AlertCircle, Info, FilePlus, Edit3, FolderOpen, X, ChevronRight, Database, AlertTriangle, Type, Smartphone } from 'lucide-react';
 import { TabId, PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates, BluetoothDevice } from './types';
 import TabBar from './components/TabBar';
 import EditScreen from './screens/EditScreen';
@@ -38,29 +38,8 @@ const DEFAULT_LAYOUTS: LayoutConfig[] = [
     }
   },
   {
-    id: 'modelo_termico_real',
-    name: 'Modelo Térmico Genérico',
-    fontFamily: 'MONO',
-    fontSize: 'SMALL',
-    textAlign: 'LEFT',
-    showSidebars: false,
-    showBorders: false,
-    showHeader: true,
-    showConsumer: true,
-    showQrCode: true,
-    showFooter: true,
-    density: 'COMPACT',
-    customTexts: {
-      headerTitle: 'DANFE NFC-e\nDocumento Auxiliar de Nota Fiscal de Consumidor Eletrônica',
-      subHeader: '',
-      taxLabel: 'TRIBUTOS',
-      consumerLabel: 'CONSUMIDOR',
-      footerMessage: 'Consulte pela Chave de Acesso em'
-    }
-  },
-  {
     id: 'modelo_guimaraes',
-    name: 'Modelo Guimarães (Real)',
+    name: 'Modelo Auto Posto Guimarães',
     fontFamily: 'MONO',
     fontSize: 'SMALL',
     textAlign: 'LEFT',
@@ -74,9 +53,9 @@ const DEFAULT_LAYOUTS: LayoutConfig[] = [
     customTexts: {
       headerTitle: 'Documento Auxiliar\nda Nota Fiscal de Consumidor Eletrônica',
       subHeader: '',
-      taxLabel: 'Tributos Incidentes (Lei federal 12.741/12)',
+      taxLabel: '',
       consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
-      footerMessage: 'Consulte pela Chave de Acesso em'
+      footerMessage: 'Consulte pela Chave de Acesso em\nhttp://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp'
     }
   }
 ];
@@ -104,6 +83,7 @@ const BLANK_INVOICE: InvoiceData = {
   urlQrCode: '',
   formaPagamento: 'DINHEIRO',
   impostos: { federal: '0,00', estadual: '0,00', municipal: '0,00' },
+  detalheCodigo: ''
 };
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,00', estadual: '0,00', municipal: '0,00' };
@@ -122,30 +102,61 @@ const ICCAR_DEFAULT_MODEL: SavedModel = {
     chavePix: '02.280.133/0047-77',
     tipoChavePix: 'CNPJ'
   },
-  // Taxas calibradas para dar exatos 46,61 e 162,63 em uma nota de 800,06
-  taxRates: {
-    federal: '5,8258', 
-    estadual: '20,3272', 
-    municipal: '0,00'
-  },
+  taxRates: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' },
   prices: [
     { id: '1', code: '1', name: 'GASOLINA COMUM', unit: 'L', price: '5,590', priceCard: '5,590' },
     { id: '2', code: '2', name: 'ETANOL COMUM', unit: 'L', price: '3,490', priceCard: '3,490' },
     { id: '3', code: '3', name: 'DIESEL S10', unit: 'L', price: '5,890', priceCard: '5,890' },
-    { id: '4', code: '4', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,790', priceCard: '5,790' }
+  ],
+  invoiceData: { ...BLANK_INVOICE, impostos: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' } },
+  fuels: []
+};
+
+// --- MODELO NOVO GUIMARÃES (DA FOTO) ---
+const GUIMARAES_DEFAULT_MODEL: SavedModel = {
+  id: 'guimaraes_modelo_fixo',
+  name: 'AUTO POSTO GUIMARAES LTDA',
+  updatedAt: new Date().toISOString(),
+  postoData: {
+    razaoSocial: 'AUTO POSTO GUIMARAES LTDA',
+    cnpj: '02.855.790/0001-12',
+    inscEstadual: '', // Não visível na foto
+    endereco: 'BR 010, SN - KM 1350 - MARANHÃO NOVO\nIMPERATRIZ - MA',
+    activeLayoutId: 'modelo_guimaraes',
+    chavePix: '',
+    tipoChavePix: 'CNPJ'
+  },
+  taxRates: { federal: '9,50', estadual: '20,10', municipal: '0,00' },
+  prices: [
+    { id: '1', code: '2', name: 'OLEO DIESEL B S10', unit: 'L', price: '5,990', priceCard: '5,990' }
   ],
   invoiceData: {
     ...BLANK_INVOICE,
-    // Garante que os impostos iniciem com as taxas padrão
-    impostos: {
-        federal: '5,8258',
-        estadual: '20,3272',
-        municipal: '0,00'
-    }
+    numero: '467352',
+    serie: '1',
+    dataEmissao: '10/12/2025 22:32:33',
+    protocolo: '221250476045004',
+    chaveAcesso: '2125 1202 8557 9000 0112 6500 1000 4673 5211 0437 2459',
+    urlQrCode: 'http://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp',
+    impostos: { federal: '9,5005', estadual: '20,1000', municipal: '0,00' },
+    placa: 'OIB4C39',
+    km: '',
+    motorista: 'ACACIO',
+    operador: '741.779.0',
+    detalheCodigo: '#CF:B31 EI0550800.620 EF0550927.830 V127.206'
   },
-  fuels: [] // Detalhes da nota limpos
+  fuels: [
+    { 
+       id: '1', 
+       code: '2', 
+       name: 'OLEO DIESEL B S10', 
+       quantity: '127,206', 
+       unit: 'L', 
+       unitPrice: '5,990', 
+       total: '761,96'
+    }
+  ]
 };
-
 
 type NotificationType = { message: string; type: 'success' | 'error' | 'info'; id: number; };
 
@@ -173,6 +184,28 @@ const App: React.FC = () => {
   const [btStatus, setBtStatus] = useState<'DISCONNECTED' | 'SEARCHING' | 'CONNECTED'>('DISCONNECTED');
   const [btDevice, setBtDevice] = useState<BluetoothDevice | null>(null);
 
+  // Estado PWA (Instalação)
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Escuta o evento de "pode instalar"
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
+
   // --- PERSISTÊNCIA DE DADOS (MODELOS) ---
   const [savedModels, setSavedModels] = useState<SavedModel[]>(() => {
     try {
@@ -181,11 +214,11 @@ const App: React.FC = () => {
         const parsed = JSON.parse(item);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      // Se não tiver nada salvo, inicia com o modelo ICCAR padrão
-      return [ICCAR_DEFAULT_MODEL];
+      // Se não tiver nada salvo, inicia com o modelo ICCAR padrão e Guimarães
+      return [GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
     } catch (error) {
       console.error("Falha ao carregar banco de dados local:", error);
-      return [ICCAR_DEFAULT_MODEL];
+      return [GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
     }
   });
 
@@ -214,7 +247,7 @@ const App: React.FC = () => {
   }, [customLayouts]);
 
   // --- ESTADO DO FORMULÁRIO (EDITOR) ---
-  // Inicializa o estado com o primeiro modelo salvo (que será o ICCAR por padrão se for a 1ª vez)
+  // Inicializa o estado com o primeiro modelo salvo (que será o Guimarães por padrão se for a 1ª vez)
   const [selectedModelId, setSelectedModelId] = useState<string>(() => {
      return savedModels.length > 0 ? savedModels[0].id : '';
   });
@@ -502,10 +535,10 @@ const App: React.FC = () => {
   };
 
   const confirmReset = () => {
-    // Reseta para o padrão ICCAR em vez de array vazio
-    persistModels([ICCAR_DEFAULT_MODEL]);
-    handleLoadModel(ICCAR_DEFAULT_MODEL.id);
-    showToast("Banco de dados resetado para o Padrão ICCAR.", "success");
+    // Reseta para o padrão ICCAR + GUIMARAES
+    persistModels([GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL]);
+    handleLoadModel(GUIMARAES_DEFAULT_MODEL.id);
+    showToast("Banco de dados resetado para padrões.", "success");
     setActionModal({ type: 'NONE' });
   };
 
@@ -555,12 +588,23 @@ const App: React.FC = () => {
     }
   };
 
+  // --- FUNÇÃO DE IMPRESSÃO MELHORADA (ABRE O DIÁLOGO DO SISTEMA) ---
   const handlePrint = () => {
+    // Função interna para disparar o comando
+    const doPrint = () => {
+      // Pequeno delay para garantir renderização, mas curto o suficiente para ser responsivo
+      setTimeout(() => {
+          window.print();
+      }, 100);
+    };
+
     if (activeTab !== 'NOTA') {
+      showToast("Abrindo impressoras...", "info");
       setActiveTab('NOTA');
-      setTimeout(() => window.print(), 500);
+      // Aguarda a transição de aba (tempo reduzido para ser mais ágil)
+      setTimeout(doPrint, 500);
     } else {
-      window.print();
+      doPrint();
     }
   };
 
@@ -582,6 +626,20 @@ const App: React.FC = () => {
     const randomDigits = (n: number) => Array.from({length:n}, ()=>Math.floor(Math.random()*10)).join('');
     const dateStr = `${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()} ${pad(today.getHours())}:${pad(today.getMinutes())}:${pad(today.getSeconds())}`;
     
+    // Gera código aleatório para o modelo Guimarães
+    const r = (n: number) => Math.floor(Math.random() * n);
+    const p1 = `B${r(9)}${r(9)}`; // ex: B31
+    const p2 = `EI0${r(9)}${r(9)}${r(9)}${r(9)}${r(9)}.${r(9)}${r(9)}${r(9)}`; // ex: EI0550800.620
+    const p3 = `EF0${r(9)}${r(9)}${r(9)}${r(9)}${r(9)}.${r(9)}${r(9)}${r(9)}`; // ex: EF0550927.830
+    const p4 = `V${r(9)}${r(9)}${r(9)}.${r(9)}${r(9)}${r(9)}`; // ex: V127.206
+    const randomDetailCode = `#CF:${p1} ${p2} ${p3} ${p4}`;
+
+    // Gera REQ (Operador) no formato 741.779.0
+    const reqPart1 = Math.floor(100 + Math.random() * 900); // 3 digitos
+    const reqPart2 = Math.floor(100 + Math.random() * 900); // 3 digitos
+    const reqPart3 = Math.floor(Math.random() * 10); // 1 digito
+    const generatedReq = `${reqPart1}.${reqPart2}.${reqPart3}`;
+
     setInvoiceData(prev => ({
       ...prev,
       dataEmissao: dateStr,
@@ -589,7 +647,9 @@ const App: React.FC = () => {
       serie: prev.serie || "1",
       protocolo: prev.protocolo || `321${today.getFullYear().toString().substr(2)}${randomDigits(10)}`,
       chaveAcesso: prev.chaveAcesso || `${randomDigits(44)}`.replace(/(.{4})/g, '$1 ').trim(),
-      urlQrCode: prev.urlQrCode || 'http://www.nfce.sefaz.ma.gov.br'
+      urlQrCode: prev.urlQrCode || 'http://www.nfce.sefaz.ma.gov.br',
+      detalheCodigo: randomDetailCode, // Insere o código gerado
+      operador: generatedReq // Insere o código REQ
     }));
     
     showToast("NFC-e Gerada com Sucesso!", "success");
@@ -653,9 +713,9 @@ const App: React.FC = () => {
     <div className="w-full min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100">
       
       {/* NOTIFICAÇÕES */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none">
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none print:hidden">
         {notifications.map(n => (
-          <div key={n.id} className={`pointer-events-auto flex items-center gap-3 p-3 rounded-lg shadow-xl border animate-in slide-in-from-top-5 fade-in duration-300
+          <div key={n.id} className={`pointer-events-auto flex items-center gap-3 p-3 rounded-lg shadow-xl border animate-toast-slide
             ${n.type === 'success' ? 'bg-green-600 text-white border-green-700' : 
               n.type === 'error' ? 'bg-red-600 text-white border-red-700' : 
               'bg-slate-800 text-white border-slate-700'}`}>
@@ -675,11 +735,20 @@ const App: React.FC = () => {
             <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v3.7 Local</span>
           </div>
           <div className="flex items-center gap-3 text-blue-400">
-            <button onClick={handleBluetoothConnect} className="hover:bg-slate-800 p-2 rounded-full"><Bluetooth size={18} /></button>
-            <button onClick={handleDownloadPDF} disabled={isProcessing} className="hover:bg-slate-800 p-2 rounded-full">
+            {installPrompt && (
+              <button 
+                onClick={handleInstallClick} 
+                className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-500 animate-pulse shadow-lg ring-2 ring-blue-400"
+                title="Instalar Aplicativo"
+              >
+                <Smartphone size={18} />
+              </button>
+            )}
+            <button onClick={handleBluetoothConnect} className="hover:bg-slate-800 p-2 rounded-full" title="Conectar Impressora Bluetooth (Experimental)"><Bluetooth size={18} /></button>
+            <button onClick={handleDownloadPDF} disabled={isProcessing} className="hover:bg-slate-800 p-2 rounded-full" title="Salvar como Imagem/PDF">
                {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
             </button>
-            <button onClick={handlePrint} className="hover:bg-slate-800 p-2 rounded-full"><Printer size={18} /></button>
+            <button onClick={handlePrint} className="hover:bg-slate-800 p-2 rounded-full" title="Imprimir (Abrir Impressoras)"><Printer size={18} /></button>
           </div>
         </div>
 
@@ -726,7 +795,7 @@ const App: React.FC = () => {
           </div>
 
           {selectedModelId && (
-             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700 animate-in slide-in-from-top-2">
+             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700 animate-slide-down-sm">
                 <button 
                    onClick={() => openRenameModal()}
                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white py-1.5 rounded text-xs border border-slate-700 hover:border-slate-600 flex items-center justify-center gap-1 transition-colors"
@@ -754,8 +823,8 @@ const App: React.FC = () => {
 
       {/* 1. Modal Renomear */}
       {actionModal.type === 'RENAME' && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-slate-700 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in print:hidden">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-slate-700 animate-zoom-in">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                  <Type size={20} className="text-blue-500" /> Renomear Modelo
               </h3>
@@ -776,8 +845,8 @@ const App: React.FC = () => {
 
       {/* 2. Modal Confirmar Exclusão */}
       {actionModal.type === 'DELETE' && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-red-900/50 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in print:hidden">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-red-900/50 animate-zoom-in">
               <div className="flex flex-col items-center text-center mb-6">
                  <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-full text-red-600 mb-3">
                     <Trash2 size={32} />
@@ -797,8 +866,8 @@ const App: React.FC = () => {
 
       {/* 3. Modal Confirmar Reset Total */}
       {actionModal.type === 'RESET_ALL' && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-red-900/50 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in print:hidden">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-red-900/50 animate-zoom-in">
               <div className="flex flex-col items-center text-center mb-6">
                  <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-full text-red-600 mb-3">
                     <AlertTriangle size={32} />
@@ -818,8 +887,8 @@ const App: React.FC = () => {
 
       {/* 4. Modal Confirmar Novo Modelo */}
       {actionModal.type === 'NEW_MODEL' && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-slate-700 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in print:hidden">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-slate-700 animate-zoom-in">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Iniciar Novo Modelo?</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
                  Isso limpará os campos atuais. Se não salvou, perderá as alterações.
@@ -834,8 +903,8 @@ const App: React.FC = () => {
 
       {/* 5. Modal Confirmar Exclusão de Layout (Visual) */}
       {actionModal.type === 'DELETE_LAYOUT' && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-red-900/50 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in print:hidden">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-red-900/50 animate-zoom-in">
               <div className="flex flex-col items-center text-center mb-6">
                  <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-full text-red-600 mb-3">
                     <Trash2 size={32} />
@@ -855,7 +924,7 @@ const App: React.FC = () => {
 
       {/* --- MODAL DE SELEÇÃO DE MODELOS (LISTA) --- */}
       {showModelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in print:hidden">
            <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col max-h-[80vh]">
               
               <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900">

@@ -2,12 +2,52 @@
 <html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NFC-e Pro Mobile</title>
+    
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10605/10605963.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
+        theme: {
+          extend: {
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideDown: {
+                '0%': { transform: 'translateY(-1rem)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              slideDownSm: {
+                '0%': { transform: 'translateY(-0.5rem)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              zoomIn: {
+                '0%': { transform: 'scale(0.95)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              },
+              toastSlide: {
+                '0%': { transform: 'translateY(-1.25rem)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.2s ease-out',
+              'slide-down': 'slideDown 0.3s ease-out',
+              'slide-down-sm': 'slideDownSm 0.2s ease-out',
+              'zoom-in': 'zoomIn 0.2s ease-out',
+              'toast-slide': 'toastSlide 0.3s ease-out',
+            }
+          }
+        }
       }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -27,50 +67,57 @@
         scrollbar-width: none;
       }
 
-      /* PRINT STYLES - CRITICAL FIX FOR CUT OFF CONTENT */
+      /* PRINT STYLES - CORREÇÃO DEFINITIVA DE CORTE */
       @media print {
         @page {
           margin: 0;
           size: auto;
         }
         
-        html, body {
-           height: auto;
-           min-height: 100%;
+        /* 1. Reset Global de Scroll e Tamanho */
+        html, body, #root, main {
+           height: auto !important;
+           min-height: 0 !important;
            overflow: visible !important;
-           margin: 0 !important;
-           padding: 0 !important;
-           background: white;
+           display: block !important;
+           position: static !important;
         }
 
-        /* Oculta tudo por padrão */
-        body * {
-          visibility: hidden;
+        /* 2. Ocultar Elementos de Interface Padrão */
+        /* Oculta Header, Botões Flutuantes, Notificações, etc */
+        header, nav, .fixed, .sticky, button, .print\:hidden {
+          display: none !important;
         }
-
-        /* Mostra apenas o cupom */
-        #printable-receipt, #printable-receipt * {
-          visibility: visible;
-        }
-
-        /* Posicionamento Absoluto para ignorar scroll da tela e containers pais */
-        #printable-receipt {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100% !important;
-          max-width: 100% !important;
-          margin: 0 !important;
+        
+        /* 3. Reset do Container Principal */
+        main {
           padding: 0 !important;
-          background: white;
-          overflow: visible !important;
+          margin: 0 !important;
+          border: none !important;
         }
 
-        /* Garante que elementos de UI não ocupem espaço */
-        #root > div > header, 
-        #root > div > nav,
-        #root > div > div.sticky,
-        button, .print\:hidden {
+        /* 4. Configuração do Recibo para Fluir Corretamente */
+        #printable-receipt {
+          width: 100% !important;
+          max-width: none !important;
+          display: block !important;
+          position: static !important; /* Importante: Static permite quebra de página */
+          margin: 0 auto !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+          background-color: white !important;
+        }
+        
+        /* 5. Garante visibilidade e cor preta para o conteúdo do recibo */
+        #printable-receipt * {
+          visibility: visible !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        /* 6. Ocultar tudo que for irmão do root ou overlays */
+        body > *:not(#root) {
           display: none !important;
         }
       }
