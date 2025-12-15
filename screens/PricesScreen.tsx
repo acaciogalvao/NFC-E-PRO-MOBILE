@@ -66,33 +66,42 @@ const PricesScreen: React.FC<PricesScreenProps> = ({ prices, setPrices, taxRates
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Federal %</label>
-            <input 
-              className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2 text-center text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-              value={taxRates.federal}
-              onChange={e => handleTaxRateChange('federal', e.target.value)}
-              placeholder="0,00"
-              inputMode="decimal"
-            />
+            <div className="relative">
+              <input 
+                className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2 pr-6 text-center text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                value={taxRates.federal}
+                onChange={e => handleTaxRateChange('federal', e.target.value)}
+                placeholder="0,00"
+                inputMode="decimal"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
+            </div>
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Estadual %</label>
-            <input 
-              className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2 text-center text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-              value={taxRates.estadual}
-              onChange={e => handleTaxRateChange('estadual', e.target.value)}
-              placeholder="0,00"
-              inputMode="decimal"
-            />
+            <div className="relative">
+              <input 
+                className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2 pr-6 text-center text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                value={taxRates.estadual}
+                onChange={e => handleTaxRateChange('estadual', e.target.value)}
+                placeholder="0,00"
+                inputMode="decimal"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
+            </div>
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Munic. %</label>
-            <input 
-              className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2 text-center text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-              value={taxRates.municipal}
-              onChange={e => handleTaxRateChange('municipal', e.target.value)}
-              placeholder="0,00"
-              inputMode="decimal"
-            />
+            <div className="relative">
+              <input 
+                className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg p-2 pr-6 text-center text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                value={taxRates.municipal}
+                onChange={e => handleTaxRateChange('municipal', e.target.value)}
+                placeholder="0,00"
+                inputMode="decimal"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
+            </div>
           </div>
         </div>
       </div>

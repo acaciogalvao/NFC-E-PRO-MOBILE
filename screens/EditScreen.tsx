@@ -51,10 +51,18 @@ const validateCNPJ = (cnpj: string): boolean => {
   return true; 
 };
 
+// Função robusta para converter string (ex: "1.234,56" ou "R$ 50,00") em float JS
 const parseLocaleNumber = (stringNumber: string) => {
   if (!stringNumber) return 0;
-  const clean = stringNumber.replace(/\./g, '').replace(',', '.');
-  return parseFloat(clean);
+  // Converte para string se não for
+  const str = String(stringNumber);
+  // Remove 'R$', espaços e tudo que não for dígito, vírgula, ponto ou sinal de menos
+  const cleanStr = str.replace(/[^\d,.-]/g, ''); 
+  if (!cleanStr) return 0;
+  // Remove pontos de milhar e troca vírgula decimal por ponto
+  const normalized = cleanStr.replace(/\./g, '').replace(',', '.');
+  const val = parseFloat(normalized);
+  return isFinite(val) ? val : 0;
 };
 
 const formatMoneyMask = (value: string) => {
@@ -94,18 +102,22 @@ const EditScreen: React.FC<EditScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isCard = invoiceData.formaPagamento === 'CARTAO' || invoiceData.formaPagamento === 'CREDITO' || invoiceData.formaPagamento === 'DEBITO';
+  
+  // Cálculo do Total dos Itens
   const totalItems = fuels.reduce((acc, f) => {
     const q = parseLocaleNumber(f.quantity);
     let p = parseLocaleNumber(f.unitPrice);
     if (isCard && f.unitPriceCard && parseLocaleNumber(f.unitPriceCard) > 0) {
       p = parseLocaleNumber(f.unitPriceCard);
     }
-    return acc + (q * p);
+    const subtotal = q * p;
+    return acc + (isNaN(subtotal) ? 0 : subtotal);
   }, 0);
 
   const calcTaxValue = (percentStr: string) => {
     const pct = parseLocaleNumber(percentStr);
-    return totalItems * (pct / 100);
+    const val = totalItems * (pct / 100);
+    return isNaN(val) ? 0 : val;
   };
 
   useEffect(() => {
@@ -161,7 +173,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
       name: selectedPrice.name,
       unitPrice: selectedPrice.price,
       unitPriceCard: selectedPrice.priceCard, 
-      unit: selectedPrice.unit,
+      unit: selectedPrice.unit, 
       code: selectedPrice.code, 
       quantity: '', 
       total: ''
@@ -219,11 +231,12 @@ const EditScreen: React.FC<EditScreenProps> = ({
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `
         Analise a imagem deste comprovante fiscal (NFC-e) e extraia os dados em formato JSON.
+        Importante: Extraia o VALOR MONETÁRIO (R$) dos tributos (IBPT) encontrados no rodapé, não a porcentagem.
         Estrutura JSON esperada:
         {
           "posto": { "razaoSocial": "string", "cnpj": "string", "inscEstadual": "string", "endereco": "string" },
           "invoice": { "numero": "string", "serie": "string", "dataEmissao": "string", "chaveAcesso": "string", "protocolo": "string" },
-          "impostos": { "federal": "string", "estadual": "string", "municipal": "string" },
+          "valores_tributos_reais": { "federal": "number", "estadual": "number", "municipal": "number" },
           "items": [{ "code": "string", "name": "string", "quantity": "number", "unit": "string", "unitPrice": "number", "total": "number" }]
         }
       `;
@@ -257,7 +270,47 @@ const EditScreen: React.FC<EditScreenProps> = ({
         }));
       }
       
-      if (data.impostos) {
+      let calculatedTotal = 0;
+      if (data.items && Array.isArray(data.items)) {
+        const newFuels: FuelItem[] = data.items.map((item: any, index: number) => {
+          const qty = item.quantity || 0;
+          const price = item.unitPrice || 0;
+          const total = item.total || (qty * price);
+          calculatedTotal += total;
+
+          return {
+            id: (Date.now() + index).toString(),
+            code: item.code || '000',
+            name: item.name || 'PRODUTO',
+            unit: item.unit || 'L',
+            quantity: qty.toLocaleString('pt-BR', { minimumFractionDigits: 3 }),
+            unitPrice: price.toLocaleString('pt-BR', { minimumFractionDigits: 3 }),
+            total: total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+            productId: undefined 
+          };
+        });
+        setFuels(newFuels);
+      }
+
+      // CÁLCULO DA PORCENTAGEM DE IMPOSTOS
+      // Se a IA encontrou os valores em Reais (ex: R$ 50,00) e temos o total da nota (ex: R$ 200,00)
+      // A porcentagem é (50 / 200) * 100 = 25%
+      if (data.valores_tributos_reais && calculatedTotal > 0) {
+         const valFed = typeof data.valores_tributos_reais.federal === 'number' ? data.valores_tributos_reais.federal : 0;
+         const valEst = typeof data.valores_tributos_reais.estadual === 'number' ? data.valores_tributos_reais.estadual : 0;
+         const valMun = typeof data.valores_tributos_reais.municipal === 'number' ? data.valores_tributos_reais.municipal : 0;
+
+         const pctFed = (valFed / calculatedTotal) * 100;
+         const pctEst = (valEst / calculatedTotal) * 100;
+         const pctMun = (valMun / calculatedTotal) * 100;
+
+         setTaxRates({
+           federal: pctFed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+           estadual: pctEst.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+           municipal: pctMun.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+         });
+      } else if (data.impostos) {
+         // Fallback antigo (caso a IA retorne direto)
          setTaxRates({
            federal: data.impostos.federal || taxRates.federal || '0,00',
            estadual: data.impostos.estadual || taxRates.estadual || '0,00',
@@ -265,20 +318,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
          });
       }
 
-      if (data.items && Array.isArray(data.items)) {
-        const newFuels: FuelItem[] = data.items.map((item: any, index: number) => ({
-          id: (Date.now() + index).toString(),
-          code: item.code || '000',
-          name: item.name || 'PRODUTO',
-          unit: item.unit || 'L',
-          quantity: item.quantity ? item.quantity.toLocaleString('pt-BR', { minimumFractionDigits: 3 }) : '0,000',
-          unitPrice: item.unitPrice ? item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 3 }) : '0,000',
-          total: item.total ? item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00',
-          productId: undefined 
-        }));
-        setFuels(newFuels);
-      }
-      alert("Dados extraídos com sucesso!");
+      alert("Dados extraídos e impostos calculados com sucesso!");
 
     } catch (error) {
       console.error(error);
@@ -540,7 +580,8 @@ const EditScreen: React.FC<EditScreenProps> = ({
             <input 
               readOnly
               className="w-full border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700/50 rounded p-2 text-center text-slate-500 dark:text-slate-400 font-bold outline-none cursor-not-allowed"
-              value={invoiceData.impostos.federal}
+              // Usar parseLocaleNumber para limpar qualquer lixo (ex: R$) e mostrar só o número da porcentagem
+              value={parseLocaleNumber(invoiceData.impostos.federal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               placeholder="0,00"
             />
           </div>
@@ -551,7 +592,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
             <input 
               readOnly
               className="w-full border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700/50 rounded p-2 text-center text-slate-500 dark:text-slate-400 font-bold outline-none cursor-not-allowed"
-              value={invoiceData.impostos.estadual}
+              value={parseLocaleNumber(invoiceData.impostos.estadual).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               placeholder="0,00"
             />
           </div>
@@ -562,7 +603,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
             <input 
               readOnly
               className="w-full border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700/50 rounded p-2 text-center text-slate-500 dark:text-slate-400 font-bold outline-none cursor-not-allowed"
-              value={invoiceData.impostos.municipal}
+              value={parseLocaleNumber(invoiceData.impostos.municipal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               placeholder="0,00"
             />
           </div>

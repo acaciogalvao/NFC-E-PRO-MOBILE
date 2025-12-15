@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Trash2, Download, Upload, HardDrive, Edit3, ArrowUpRight, FolderOpen, AlertTriangle } from 'lucide-react';
-import { SavedModel } from '../types';
+import { SavedModel, LayoutConfig } from '../types';
 
 interface DataScreenProps {
   onRefresh: () => void;
@@ -8,44 +8,42 @@ interface DataScreenProps {
   onDeleteModel: (id: string) => void;
   onRenameModel: (id: string) => void;
   onLoadModel: (id: string) => void;
+  onClearAllData: () => void;
+  onImportBackup: (models: SavedModel[], layouts?: LayoutConfig[]) => void;
 }
 
 const LOCAL_STORAGE_KEY_MODELS = 'nfce_models_db_v1';
 const LOCAL_STORAGE_KEY_LAYOUTS = 'nfce_pro_layouts_v3';
 
-const DataScreen: React.FC<DataScreenProps> = ({ onRefresh, savedModels, onDeleteModel, onRenameModel, onLoadModel }) => {
+const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onRenameModel, onLoadModel, onClearAllData, onImportBackup }) => {
   const [dbSize, setDbSize] = useState<string>('0 KB');
-  const [lastBackup, setLastBackup] = useState<string>('Nunca');
 
   useEffect(() => {
     calculateStats();
   }, [savedModels]);
 
   const calculateStats = () => {
-    const models = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS) || '[]';
-    const totalBytes = new Blob([models]).size + new Blob([localStorage.getItem(LOCAL_STORAGE_KEY_LAYOUTS) || '']).size;
-    if (totalBytes > 1024 * 1024) {
-      setDbSize(`${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
-    } else {
-      setDbSize(`${(totalBytes / 1024).toFixed(2)} KB`);
-    }
-  };
-
-  const handleClearAll = () => {
-    if (confirm("ATENÇÃO CRÍTICA!\n\nIsso apagará TODOS os seus modelos salvos neste navegador.\nEsta ação não pode ser desfeita.\n\nDeseja continuar?")) {
-      localStorage.removeItem(LOCAL_STORAGE_KEY_MODELS);
-      calculateStats();
-      onRefresh(); 
-      alert("Banco de dados local limpo com sucesso.");
+    try {
+      const models = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS) || '[]';
+      const layouts = localStorage.getItem(LOCAL_STORAGE_KEY_LAYOUTS) || '';
+      const totalBytes = new Blob([models]).size + new Blob([layouts]).size;
+      
+      if (totalBytes > 1024 * 1024) {
+        setDbSize(`${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
+      } else {
+        setDbSize(`${(totalBytes / 1024).toFixed(2)} KB`);
+      }
+    } catch {
+      setDbSize('Erro');
     }
   };
 
   const handleExport = () => {
     const data = {
-      models: JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_MODELS) || '[]'),
+      models: savedModels,
       layouts: JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_LAYOUTS) || '[]'),
       exportedAt: new Date().toISOString(),
-      version: '2.0-local'
+      version: '3.0-local'
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -56,7 +54,6 @@ const DataScreen: React.FC<DataScreenProps> = ({ onRefresh, savedModels, onDelet
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setLastBackup(new Date().toLocaleString());
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,22 +65,38 @@ const DataScreen: React.FC<DataScreenProps> = ({ onRefresh, savedModels, onDelet
       try {
         const content = e.target?.result as string;
         const data = JSON.parse(content);
+        
+        let modelsToImport: SavedModel[] = [];
+        let layoutsToImport: LayoutConfig[] | undefined = undefined;
 
-        if (!data.models && !Array.isArray(data.models)) {
-           throw new Error("Arquivo de backup inválido ou antigo.");
-        }
-
-        if (confirm(`Restaurar backup com ${data.models.length} modelos?\nIsso substituirá os dados atuais.`)) {
-           localStorage.setItem(LOCAL_STORAGE_KEY_MODELS, JSON.stringify(data.models));
-           if (data.layouts) {
-             localStorage.setItem(LOCAL_STORAGE_KEY_LAYOUTS, JSON.stringify(data.layouts));
+        // LÓGICA DE COMPATIBILIDADE DE BACKUP
+        if (Array.isArray(data)) {
+           // Formato Antigo (V1): Apenas um array de modelos
+           modelsToImport = data;
+        } else if (data.models && Array.isArray(data.models)) {
+           // Formato Novo (V2/V3): Objeto com 'models' e 'layouts'
+           modelsToImport = data.models;
+           if (data.layouts && Array.isArray(data.layouts)) {
+             layoutsToImport = data.layouts;
            }
-           calculateStats();
-           onRefresh();
-           alert("Dados restaurados com sucesso!");
+        } else {
+           throw new Error("Formato de arquivo não reconhecido.");
         }
+
+        if (modelsToImport.length === 0) {
+           alert("O arquivo de backup não contém modelos válidos.");
+           return;
+        }
+
+        if (confirm(`Restaurar backup com ${modelsToImport.length} modelos?\n\nISSO SUBSTITUIRÁ OS DADOS ATUAIS!`)) {
+           onImportBackup(modelsToImport, layoutsToImport);
+        }
+
       } catch (err) {
         alert("Erro ao importar: " + (err as Error).message);
+      } finally {
+        // Limpa o input para permitir selecionar o mesmo arquivo novamente se necessário
+        event.target.value = '';
       }
     };
     reader.readAsText(file);
@@ -91,77 +104,80 @@ const DataScreen: React.FC<DataScreenProps> = ({ onRefresh, savedModels, onDelet
 
   return (
     <div className="space-y-6">
-      
       <div className="flex items-center gap-2">
         <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600 dark:text-blue-400">
           <Database size={24} />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Dados Locais</h2>
-          <p className="text-xs text-slate-500">Seus dados estão salvos no navegador deste dispositivo.</p>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Gerenciador de Dados</h2>
+          <p className="text-xs text-slate-500">Dados armazenados localmente no navegador.</p>
         </div>
       </div>
 
-      {/* Estatísticas Rápidas */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
            <div className="flex items-center gap-2 text-slate-500 mb-1">
              <HardDrive size={16} />
-             <span className="text-xs font-bold uppercase">Uso em Disco</span>
+             <span className="text-xs font-bold uppercase">Armazenamento</span>
            </div>
            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dbSize}</div>
         </div>
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
            <div className="flex items-center gap-2 text-slate-500 mb-1">
              <Database size={16} />
-             <span className="text-xs font-bold uppercase">Modelos Salvos</span>
+             <span className="text-xs font-bold uppercase">Modelos</span>
            </div>
            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{savedModels.length}</div>
         </div>
       </div>
 
-      {/* LISTA DE MODELOS SALVOS */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-         <div className="bg-slate-50 dark:bg-slate-700/50 px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+         <div className="bg-slate-50 dark:bg-slate-700/50 px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
           <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center gap-2">
-            <FolderOpen size={16} /> Gerenciar Modelos Salvos
+            <FolderOpen size={16} /> Meus Modelos
           </h3>
         </div>
-        <div className="divide-y divide-slate-100 dark:divide-slate-700">
+        <div className="divide-y divide-slate-100 dark:divide-slate-700 max-h-[400px] overflow-y-auto">
            {savedModels.length === 0 && (
-             <div className="p-8 text-center flex flex-col items-center gap-2 text-slate-400">
-               <Database size={32} className="opacity-20" />
-               <span className="text-sm">Nenhum modelo salvo ainda.</span>
-               <span className="text-xs">Crie e salve um modelo na aba "EDITAR".</span>
+             <div className="p-8 text-center flex flex-col items-center gap-3 text-slate-400">
+               <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-full">
+                 <Database size={32} className="opacity-30" />
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-sm font-bold">Nenhum modelo encontrado.</span>
+                 <span className="text-xs">Crie seu primeiro modelo na aba "EDITAR".</span>
+               </div>
              </div>
            )}
            {savedModels.map(model => (
              <div key={model.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex items-center justify-between group">
-                <div className="flex-1 overflow-hidden mr-2">
-                   <div className="font-bold text-slate-700 dark:text-slate-200 truncate text-sm">{model.name}</div>
-                   <div className="text-[10px] text-slate-400">
-                      Atualizado em: {new Date(model.updatedAt).toLocaleDateString()} às {new Date(model.updatedAt).toLocaleTimeString().slice(0,5)}
+                <div className="flex-1 overflow-hidden mr-3">
+                   <div className="font-bold text-slate-700 dark:text-slate-200 truncate text-sm mb-0.5">{model.name}</div>
+                   <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                      <span>Atualizado: {new Date(model.updatedAt).toLocaleDateString()}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="hidden sm:inline">{new Date(model.updatedAt).toLocaleTimeString().slice(0,5)}</span>
                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                    <button 
-                     onClick={() => onLoadModel(model.id)}
-                     className="flex items-center gap-1 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-xs font-bold"
-                     title="Carregar este modelo"
+                     onClick={(e) => { e.stopPropagation(); onLoadModel(model.id); }}
+                     className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-md text-xs font-bold transition-colors flex items-center gap-1"
+                     title="Carregar para Edição"
                    >
                      <ArrowUpRight size={14} /> Abrir
                    </button>
                    <button 
-                     onClick={() => onRenameModel(model.id)}
-                     className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                     onClick={(e) => { e.stopPropagation(); onRenameModel(model.id); }}
+                     className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                      title="Renomear"
                    >
                      <Edit3 size={16} />
                    </button>
                    <button 
-                     onClick={() => onDeleteModel(model.id)}
-                     className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-                     title="Excluir"
+                     onClick={(e) => { e.stopPropagation(); onDeleteModel(model.id); }}
+                     className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                     title="Excluir Permanentemente"
                    >
                      <Trash2 size={16} />
                    </button>
@@ -171,12 +187,11 @@ const DataScreen: React.FC<DataScreenProps> = ({ onRefresh, savedModels, onDelet
         </div>
       </div>
 
-      {/* Ações de Backup */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
         <div className="bg-slate-50 dark:bg-slate-700/50 px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-          <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200">Backup e Restauração</h3>
+          <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200">Ferramentas de Sistema</h3>
         </div>
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3">
           
           <button 
             onClick={handleExport}
@@ -187,12 +202,9 @@ const DataScreen: React.FC<DataScreenProps> = ({ onRefresh, savedModels, onDelet
                  <Download size={20} />
                </div>
                <div className="text-left">
-                 <div className="font-bold text-sm text-slate-700 dark:text-slate-200">Exportar Backup</div>
-                 <div className="text-xs text-slate-400">Salvar arquivo .json no dispositivo</div>
+                 <div className="font-bold text-sm text-slate-700 dark:text-slate-200">Fazer Backup (Download)</div>
+                 <div className="text-xs text-slate-400">Salvar todos os modelos em arquivo .json</div>
                </div>
-             </div>
-             <div className="text-xs text-slate-400">
-                Último: {lastBackup}
              </div>
           </button>
 
@@ -203,32 +215,23 @@ const DataScreen: React.FC<DataScreenProps> = ({ onRefresh, savedModels, onDelet
                </div>
                <div className="text-left">
                  <div className="font-bold text-sm text-slate-700 dark:text-slate-200">Restaurar Backup</div>
-                 <div className="text-xs text-slate-400">Carregar arquivo .json salvo anteriormente</div>
+                 <div className="text-xs text-slate-400">Carregar arquivo .json do computador</div>
                </div>
              </div>
              <input type="file" className="hidden" accept=".json" onChange={handleImport} />
           </label>
 
+          <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700">
+            <button 
+              onClick={onClearAllData}
+              className="w-full flex items-center justify-center gap-2 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg text-xs font-bold transition-colors"
+            >
+              <AlertTriangle size={14} /> Apagar Todos os Dados (Reset)
+            </button>
+          </div>
+
         </div>
       </div>
-
-      {/* Zona de Perigo */}
-      <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4 border border-red-100 dark:border-red-900/30">
-        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
-          <AlertTriangle size={18} />
-          <h3 className="font-bold text-sm">Zona de Perigo</h3>
-        </div>
-        <p className="text-xs text-red-600/70 dark:text-red-400/70 mb-4">
-          Ações aqui são irreversíveis. Tenha certeza do que está fazendo.
-        </p>
-        <button 
-          onClick={handleClearAll}
-          className="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
-        >
-          <Trash2 size={16} /> Apagar Banco de Dados Local
-        </button>
-      </div>
-
     </div>
   );
 };
