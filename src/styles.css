@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- GLOBAL APP STYLES --- */
+body {
+  font-family: 'Inter', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* Melhora resposta do toque */
+  user-select: none; /* Sensação de App Nativo */
+  -webkit-user-select: none;
+  min-height: 100dvh; /* Dynamic Viewport Height para Mobile */
+}
+
+/* Permite selecionar texto apenas em inputs e textareas */
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.font-mono {
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* Hide scrollbar for clean mobile look */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* --- PRINT STYLES - CORREÇÃO DEFINITIVA DE CORTE --- */
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+  
+  /* 1. Reset Global de Scroll e Tamanho */
+  html, body, #root, main {
+     height: auto !important;
+     min-height: 0 !important;
+     overflow: visible !important;
+     display: block !important;
+     position: static !important;
+  }
+
+  /* 2. Ocultar Elementos de Interface Padrão */
+  header, nav, .fixed, .sticky, button, .print\:hidden {
+    display: none !important;
+  }
+  
+  /* 3. Reset do Container Principal */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+
+  /* 4. Configuração do Recibo para Fluir Corretamente */
+  #printable-receipt {
+    width: 100% !important;
+    max-width: none !important;
+    display: block !important;
+    position: static !important; /* Importante: Static permite quebra de página */
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background-color: white !important;
+  }
+  
+  /* 5. Garante visibilidade e cor preta para o conteúdo do recibo */
+  #printable-receipt * {
+    visibility: visible !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* 6. Ocultar tudo que for irmão do root ou overlays */
+  body > *:not(#root) {
+    display: none !important;
+  }
+}

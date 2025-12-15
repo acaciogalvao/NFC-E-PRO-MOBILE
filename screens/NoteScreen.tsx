@@ -58,7 +58,7 @@ const StandardReceipt: React.FC<{ data: any; layout: LayoutConfig }> = ({ data, 
       <Separator />
 
       <div className="w-full my-0.5">
-         <div className="flex font-bold text-[9px] mb-0.5 pb-0.5 border-b border-black items-end">
+         <div className="flex font-bold text-[9px] mb-0.5 pb-0.5 border-b border-black items-end leading-none">
             <span className="w-[20px]">It.</span>
             <span className="w-[35px]">Cód.</span>
             <span className="flex-1">Descrição</span>

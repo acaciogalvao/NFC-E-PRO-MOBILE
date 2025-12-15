@@ -2,21 +2,39 @@
 <html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
     <title>NFC-e Pro Mobile</title>
     
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10605/10605963.png">
 
+    <!-- 
+      CONFIGURAÇÃO HÍBRIDA:
+      1. 'src/styles.css' contém o código fonte Tailwind (para build externo/local).
+      2. O script CDN abaixo é mantido para que o projeto rode "AQUI" (sem build step),
+         mas utiliza a configuração que definimos no tailwind.config.js (replicada aqui para o CDN).
+    -->
+    
+    <!-- Link para CSS Compilado (Se rodar build externo, use dist/output.css) -->
+    <!-- <link href="/dist/output.css" rel="stylesheet"> -->
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+      /* 
+        Fallback configuration for CDN runtime. 
+        In a real build environment, this logic is inside tailwind.config.js 
+      */
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
+            screens: {
+              'xs': '375px',
+            },
             keyframes: {
               fadeIn: {
                 '0%': { opacity: '0' },
@@ -51,75 +69,44 @@
       }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Estilos globais foram movidos para src/styles.css para projetos com build.
+         Para este ambiente sem build, mantemos styles críticos aqui para garantir funcionamento. -->
     <style>
       body {
         font-family: 'Inter', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+        min-height: 100dvh;
       }
-      .font-mono {
-        font-family: 'Roboto Mono', monospace;
+      input, textarea {
+        user-select: text;
+        -webkit-user-select: text;
       }
-      /* Hide scrollbar for clean mobile look */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-
-      /* PRINT STYLES - CORREÇÃO DEFINITIVA DE CORTE */
+      .font-mono { font-family: 'Roboto Mono', monospace; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
       @media print {
-        @page {
-          margin: 0;
-          size: auto;
-        }
-        
-        /* 1. Reset Global de Scroll e Tamanho */
+        @page { margin: 0; size: auto; }
         html, body, #root, main {
-           height: auto !important;
-           min-height: 0 !important;
-           overflow: visible !important;
-           display: block !important;
-           position: static !important;
+           height: auto !important; min-height: 0 !important; overflow: visible !important;
+           display: block !important; position: static !important;
         }
-
-        /* 2. Ocultar Elementos de Interface Padrão */
-        /* Oculta Header, Botões Flutuantes, Notificações, etc */
-        header, nav, .fixed, .sticky, button, .print\:hidden {
-          display: none !important;
-        }
-        
-        /* 3. Reset do Container Principal */
-        main {
-          padding: 0 !important;
-          margin: 0 !important;
-          border: none !important;
-        }
-
-        /* 4. Configuração do Recibo para Fluir Corretamente */
+        header, nav, .fixed, .sticky, button, .print\:hidden { display: none !important; }
+        main { padding: 0 !important; margin: 0 !important; border: none !important; }
         #printable-receipt {
-          width: 100% !important;
-          max-width: none !important;
-          display: block !important;
-          position: static !important; /* Importante: Static permite quebra de página */
-          margin: 0 auto !important;
-          padding: 0 !important;
-          box-shadow: none !important;
-          background-color: white !important;
+          width: 100% !important; max-width: none !important; display: block !important;
+          position: static !important; margin: 0 auto !important; padding: 0 !important;
+          box-shadow: none !important; background-color: white !important;
         }
-        
-        /* 5. Garante visibilidade e cor preta para o conteúdo do recibo */
         #printable-receipt * {
-          visibility: visible !important;
-          color: black !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+          visibility: visible !important; color: black !important;
+          -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
         }
-        
-        /* 6. Ocultar tudo que for irmão do root ou overlays */
-        body > *:not(#root) {
-          display: none !important;
-        }
+        body > *:not(#root) { display: none !important; }
       }
     </style>
   <script type="importmap">

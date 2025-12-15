@@ -710,7 +710,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100">
+    <div className="w-full min-h-dvh bg-slate-100 dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100">
       
       {/* NOTIFICAÇÕES */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none print:hidden">
