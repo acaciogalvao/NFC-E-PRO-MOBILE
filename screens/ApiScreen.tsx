@@ -43,7 +43,7 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
       models: savedModels,
       layouts: JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_LAYOUTS) || '[]'),
       exportedAt: new Date().toISOString(),
-      version: '3.0-local'
+      version: '1.0.0'
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
