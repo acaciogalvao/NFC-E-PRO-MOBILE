@@ -108,6 +108,45 @@ const BLANK_INVOICE: InvoiceData = {
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,00', estadual: '0,00', municipal: '0,00' };
 
+// --- MODELO PADRÃO ICCAR (FIXO) ---
+const ICCAR_DEFAULT_MODEL: SavedModel = {
+  id: 'iccar_padrao_fixo',
+  name: 'POSTO ICCAR LTDA (Padrão)',
+  updatedAt: new Date().toISOString(),
+  postoData: {
+    razaoSocial: 'POSTO ICCAR LTDA',
+    cnpj: '02.280.133/0047-77',
+    inscEstadual: '124846041',
+    endereco: 'ROD BR 010, 25\nJARDIM TROPICAL, IMPERATRIZ - MA',
+    activeLayoutId: 'padrao_iccar',
+    chavePix: '02.280.133/0047-77',
+    tipoChavePix: 'CNPJ'
+  },
+  // Taxas calibradas para dar exatos 46,61 e 162,63 em uma nota de 800,06
+  taxRates: {
+    federal: '5,8258', 
+    estadual: '20,3272', 
+    municipal: '0,00'
+  },
+  prices: [
+    { id: '1', code: '1', name: 'GASOLINA COMUM', unit: 'L', price: '5,590', priceCard: '5,590' },
+    { id: '2', code: '2', name: 'ETANOL COMUM', unit: 'L', price: '3,490', priceCard: '3,490' },
+    { id: '3', code: '3', name: 'DIESEL S10', unit: 'L', price: '5,890', priceCard: '5,890' },
+    { id: '4', code: '4', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,790', priceCard: '5,790' }
+  ],
+  invoiceData: {
+    ...BLANK_INVOICE,
+    // Garante que os impostos iniciem com as taxas padrão
+    impostos: {
+        federal: '5,8258',
+        estadual: '20,3272',
+        municipal: '0,00'
+    }
+  },
+  fuels: [] // Detalhes da nota limpos
+};
+
+
 type NotificationType = { message: string; type: 'success' | 'error' | 'info'; id: number; };
 
 // Tipos para os Modais de Ação
@@ -138,10 +177,15 @@ const App: React.FC = () => {
   const [savedModels, setSavedModels] = useState<SavedModel[]>(() => {
     try {
       const item = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS);
-      return item ? JSON.parse(item) : [];
+      if (item) {
+        const parsed = JSON.parse(item);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      // Se não tiver nada salvo, inicia com o modelo ICCAR padrão
+      return [ICCAR_DEFAULT_MODEL];
     } catch (error) {
       console.error("Falha ao carregar banco de dados local:", error);
-      return [];
+      return [ICCAR_DEFAULT_MODEL];
     }
   });
 
@@ -170,12 +214,33 @@ const App: React.FC = () => {
   }, [customLayouts]);
 
   // --- ESTADO DO FORMULÁRIO (EDITOR) ---
-  const [selectedModelId, setSelectedModelId] = useState<string>(''); 
-  const [postoData, setPostoData] = useState<PostoData>({ ...BLANK_POSTO });
-  const [invoiceData, setInvoiceData] = useState<InvoiceData>({ ...BLANK_INVOICE });
-  const [fuels, setFuels] = useState<FuelItem[]>([]);
-  const [prices, setPrices] = useState<PriceItem[]>([]);
-  const [taxRates, setTaxRates] = useState<TaxRates>({ ...DEFAULT_TAX_RATES });
+  // Inicializa o estado com o primeiro modelo salvo (que será o ICCAR por padrão se for a 1ª vez)
+  const [selectedModelId, setSelectedModelId] = useState<string>(() => {
+     return savedModels.length > 0 ? savedModels[0].id : '';
+  });
+
+  // Função auxiliar para inicializar dados baseado no modelo selecionado ou no BLANK
+  const getInitialData = (modelId: string, field: keyof SavedModel, fallback: any) => {
+     const model = savedModels.find(m => m.id === modelId);
+     if (model && model[field]) {
+        // Deep copy para evitar mutação direta
+        return JSON.parse(JSON.stringify(model[field]));
+     }
+     return fallback;
+  };
+
+  const [postoData, setPostoData] = useState<PostoData>(() => getInitialData(selectedModelId, 'postoData', BLANK_POSTO));
+  const [invoiceData, setInvoiceData] = useState<InvoiceData>(() => {
+    const model = savedModels.find(m => m.id === selectedModelId);
+    if (model) {
+        if(model.invoiceData) return { ...BLANK_INVOICE, ...model.invoiceData };
+        if(model.impostos) return { ...BLANK_INVOICE, impostos: model.impostos };
+    }
+    return BLANK_INVOICE;
+  });
+  const [fuels, setFuels] = useState<FuelItem[]>(() => getInitialData(selectedModelId, 'fuels', []));
+  const [prices, setPrices] = useState<PriceItem[]>(() => getInitialData(selectedModelId, 'prices', []));
+  const [taxRates, setTaxRates] = useState<TaxRates>(() => getInitialData(selectedModelId, 'taxRates', DEFAULT_TAX_RATES));
 
   // --- HELPERS E NOTIFICAÇÕES ---
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -389,10 +454,15 @@ const App: React.FC = () => {
     persistModels(newList);
     
     if (actionModal.targetId === selectedModelId) {
-      setSelectedModelId('');
-      setPostoData({ ...BLANK_POSTO });
-      setInvoiceData({ ...BLANK_INVOICE });
-      setFuels([]);
+      // Se apagou o selecionado, tenta carregar outro ou reseta
+      if (newList.length > 0) {
+        handleLoadModel(newList[0].id);
+      } else {
+        setSelectedModelId('');
+        setPostoData({ ...BLANK_POSTO });
+        setInvoiceData({ ...BLANK_INVOICE });
+        setFuels([]);
+      }
     }
     
     showToast("Modelo excluído.", "info");
@@ -432,9 +502,10 @@ const App: React.FC = () => {
   };
 
   const confirmReset = () => {
-    persistModels([]);
-    confirmNewModel(); // Limpa o editor também
-    showToast("Todos os dados foram apagados.", "success");
+    // Reseta para o padrão ICCAR em vez de array vazio
+    persistModels([ICCAR_DEFAULT_MODEL]);
+    handleLoadModel(ICCAR_DEFAULT_MODEL.id);
+    showToast("Banco de dados resetado para o Padrão ICCAR.", "success");
     setActionModal({ type: 'NONE' });
   };
 
@@ -601,7 +672,7 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight">NFC-e Pro</h1>
-            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v3.6 Local</span>
+            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v3.7 Local</span>
           </div>
           <div className="flex items-center gap-3 text-blue-400">
             <button onClick={handleBluetoothConnect} className="hover:bg-slate-800 p-2 rounded-full"><Bluetooth size={18} /></button>
@@ -732,14 +803,14 @@ const App: React.FC = () => {
                  <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-full text-red-600 mb-3">
                     <AlertTriangle size={32} />
                  </div>
-                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">Apagar TUDO?</h3>
+                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">Restaurar Padrão?</h3>
                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                    Isso apagará <b>TODOS</b> os modelos salvos no navegador. Tem certeza absoluta?
+                    Isso apagará seus modelos e restaurará o <b>POSTO ICCAR LTDA</b> padrão.
                  </p>
               </div>
               <div className="flex gap-3">
                  <button onClick={() => setActionModal({ type: 'NONE' })} className="flex-1 py-3 rounded-lg font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button>
-                 <button onClick={confirmReset} className="flex-1 py-3 rounded-lg font-bold bg-red-600 text-white hover:bg-red-700">APAGAR TUDO</button>
+                 <button onClick={confirmReset} className="flex-1 py-3 rounded-lg font-bold bg-red-600 text-white hover:bg-red-700">RESTAURAR</button>
               </div>
            </div>
         </div>

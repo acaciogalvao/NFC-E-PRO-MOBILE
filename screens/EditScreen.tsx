@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode, Save, Database } from 'lucide-react';
+import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode, Save, Database, Unlock, ArrowRight, RefreshCw } from 'lucide-react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, TaxRates, PixKeyType } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
@@ -99,6 +99,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
 }) => {
   const [cnpjError, setCnpjError] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isReverseCalcMode, setIsReverseCalcMode] = useState(false); // Novo estado para modo de cálculo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isCard = invoiceData.formaPagamento === 'CARTAO' || invoiceData.formaPagamento === 'CREDITO' || invoiceData.formaPagamento === 'DEBITO';
@@ -114,10 +115,36 @@ const EditScreen: React.FC<EditScreenProps> = ({
     return acc + (isNaN(subtotal) ? 0 : subtotal);
   }, 0);
 
+  // Calcula o Valor em R$ baseado na porcentagem (Modo Padrão)
   const calcTaxValue = (percentStr: string) => {
     const pct = parseLocaleNumber(percentStr);
     const val = totalItems * (pct / 100);
     return isNaN(val) ? 0 : val;
+  };
+
+  // CÁLCULO REVERSO: Usuário digita R$, sistema acha a %
+  const handleReverseTaxChange = (field: 'federal' | 'estadual' | 'municipal', rawValue: string) => {
+     // 1. Formata o valor digitado visualmente
+     const formattedValue = formatMoneyMask(rawValue);
+     const valueR = parseLocaleNumber(formattedValue);
+
+     if (totalItems <= 0) {
+       alert("Adicione combustíveis/itens primeiro para calcular o imposto.");
+       return;
+     }
+
+     // 2. Calcula a porcentagem necessária: (Valor / Total) * 100
+     const newPct = (valueR / totalItems) * 100;
+     const newPctString = newPct.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+
+     // 3. Atualiza a porcentagem no estado da nota (não a global de preços, apenas desta nota)
+     setInvoiceData(prev => ({
+       ...prev,
+       impostos: {
+         ...prev.impostos,
+         [field]: newPctString
+       }
+     }));
   };
 
   useEffect(() => {
@@ -305,9 +332,9 @@ const EditScreen: React.FC<EditScreenProps> = ({
          const pctMun = (valMun / calculatedTotal) * 100;
 
          setTaxRates({
-           federal: pctFed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-           estadual: pctEst.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-           municipal: pctMun.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+           federal: pctFed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+           estadual: pctEst.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+           municipal: pctMun.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
          });
       } else if (data.impostos) {
          // Fallback antigo (caso a IA retorne direto)
@@ -386,11 +413,11 @@ const EditScreen: React.FC<EditScreenProps> = ({
           
           <div>
             <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Razão Social</label>
-            <input 
-              className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-3 text-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            <textarea 
+              className="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-3 text-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-20 resize-none font-medium leading-tight"
               value={postoData.razaoSocial}
               onChange={e => handlePostoChange('razaoSocial', e.target.value)}
-              placeholder="Digite a Razão Social"
+              placeholder="Digite a Razão Social&#10;Pode pular linhas"
             />
           </div>
           <div>
@@ -563,26 +590,35 @@ const EditScreen: React.FC<EditScreenProps> = ({
         ))}
       </div>
 
-      {/* Impostos - SOMENTE LEITURA */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+      {/* Impostos - COM CÁLCULO REVERSO */}
+      <div className={`p-4 rounded-lg shadow-sm border transition-colors ${isReverseCalcMode ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-slate-500 dark:text-slate-400 font-semibold text-sm uppercase flex items-center gap-1">
-            <Percent size={14} /> ALÍQUOTAS (%)
+          <h3 className={`font-semibold text-sm uppercase flex items-center gap-1 ${isReverseCalcMode ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-400'}`}>
+            <Percent size={14} /> ALÍQUOTAS (% DA NOTA)
           </h3>
-          <span className="text-[10px] text-slate-400 flex items-center gap-1"><Lock size={8}/> Fixo (Edite em Preços)</span>
+          <button 
+             onClick={() => setIsReverseCalcMode(!isReverseCalcMode)}
+             className={`text-[10px] flex items-center gap-1 font-bold px-2 py-1 rounded transition-colors
+               ${isReverseCalcMode 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300'}`}
+          >
+             {isReverseCalcMode ? <RefreshCw size={10} /> : <Calculator size={10} />}
+             {isReverseCalcMode ? 'Digitar Valores em R$' : 'Digitar Valores em R$'}
+          </button>
         </div>
         
-        <div className="grid grid-cols-3 gap-3">
+        {/* CAMPOS DE PORCENTAGEM (SEMPRE APENAS LEITURA PARA MOSTRAR O RESULTADO DO CÁLCULO) */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <div>
             <label className="text-[10px] text-slate-400 dark:text-slate-500 block uppercase">
               Federal (%)
             </label>
             <input 
               readOnly
-              className="w-full border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700/50 rounded p-2 text-center text-slate-500 dark:text-slate-400 font-bold outline-none cursor-not-allowed"
-              // Usar parseLocaleNumber para limpar qualquer lixo (ex: R$) e mostrar só o número da porcentagem
-              value={parseLocaleNumber(invoiceData.impostos.federal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              placeholder="0,00"
+              className="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-2 text-center text-slate-500 dark:text-slate-300 font-bold outline-none cursor-not-allowed"
+              value={invoiceData.impostos.federal}
+              placeholder="0,0000"
             />
           </div>
           <div>
@@ -591,9 +627,9 @@ const EditScreen: React.FC<EditScreenProps> = ({
             </label>
             <input 
               readOnly
-              className="w-full border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700/50 rounded p-2 text-center text-slate-500 dark:text-slate-400 font-bold outline-none cursor-not-allowed"
-              value={parseLocaleNumber(invoiceData.impostos.estadual).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              placeholder="0,00"
+              className="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-2 text-center text-slate-500 dark:text-slate-300 font-bold outline-none cursor-not-allowed"
+              value={invoiceData.impostos.estadual}
+              placeholder="0,0000"
             />
           </div>
           <div>
@@ -602,38 +638,79 @@ const EditScreen: React.FC<EditScreenProps> = ({
             </label>
             <input 
               readOnly
-              className="w-full border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700/50 rounded p-2 text-center text-slate-500 dark:text-slate-400 font-bold outline-none cursor-not-allowed"
-              value={parseLocaleNumber(invoiceData.impostos.municipal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              placeholder="0,00"
+              className="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 rounded p-2 text-center text-slate-500 dark:text-slate-300 font-bold outline-none cursor-not-allowed"
+              value={invoiceData.impostos.municipal}
+              placeholder="0,0000"
             />
           </div>
         </div>
 
-        {/* Visualização do Cálculo R$ */}
-        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+        {/* CÁLCULO DE VALOR (R$) - AGORA EDITÁVEL SE MODO ATIVO */}
+        <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
            <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1 mb-2">
-             <Calculator size={10} /> Simulação do Cálculo (R$)
+             <Calculator size={10} /> {isReverseCalcMode ? 'Definir Valor Exato (R$)' : 'Simulação do Cálculo (R$)'}
            </h4>
            <div className="grid grid-cols-3 gap-3 text-center">
              <div>
                 <span className="text-[10px] block text-slate-400">Federal</span>
-                <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
-                  R$ {calcTaxValue(invoiceData.impostos.federal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                {isReverseCalcMode ? (
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-[10px]">R$</span>
+                    <input 
+                       className="w-full pl-6 border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-indigo-900/30 rounded p-1 text-center text-xs font-bold text-indigo-700 dark:text-indigo-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                       onChange={(e) => handleReverseTaxChange('federal', e.target.value)}
+                       placeholder="0,00"
+                       defaultValue={calcTaxValue(invoiceData.impostos.federal).toFixed(2).replace('.', ',')}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
+                    R$ {calcTaxValue(invoiceData.impostos.federal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
              </div>
              <div>
                 <span className="text-[10px] block text-slate-400">Estadual</span>
-                <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
-                  R$ {calcTaxValue(invoiceData.impostos.estadual).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                {isReverseCalcMode ? (
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-[10px]">R$</span>
+                    <input 
+                       className="w-full pl-6 border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-indigo-900/30 rounded p-1 text-center text-xs font-bold text-indigo-700 dark:text-indigo-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                       onChange={(e) => handleReverseTaxChange('estadual', e.target.value)}
+                       placeholder="0,00"
+                       defaultValue={calcTaxValue(invoiceData.impostos.estadual).toFixed(2).replace('.', ',')}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
+                    R$ {calcTaxValue(invoiceData.impostos.estadual).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
              </div>
              <div>
                 <span className="text-[10px] block text-slate-400">Municipal</span>
-                <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
-                  R$ {calcTaxValue(invoiceData.impostos.municipal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                {isReverseCalcMode ? (
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 text-[10px]">R$</span>
+                    <input 
+                       className="w-full pl-6 border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-indigo-900/30 rounded p-1 text-center text-xs font-bold text-indigo-700 dark:text-indigo-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                       onChange={(e) => handleReverseTaxChange('municipal', e.target.value)}
+                       placeholder="0,00"
+                       defaultValue={calcTaxValue(invoiceData.impostos.municipal).toFixed(2).replace('.', ',')}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
+                    R$ {calcTaxValue(invoiceData.impostos.municipal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
              </div>
            </div>
+           {isReverseCalcMode && (
+             <p className="text-[9px] text-indigo-500 mt-2 text-center">
+                * O sistema ajustará automaticamente a % acima para bater o valor exato.
+             </p>
+           )}
         </div>
       </div>
 
