@@ -1,5 +1,5 @@
 
-export type TabId = 'EDITAR' | 'PRECOS' | 'NOTA' | 'PAGAMENTO' | 'API';
+export type TabId = 'EDITAR' | 'PRECOS' | 'NOTA' | 'PAGAMENTO' | 'DADOS';
 
 export type PaymentMethod = 'DINHEIRO' | 'PIX' | 'CARTAO' | 'CREDITO' | 'DEBITO';
 
@@ -93,6 +93,7 @@ export interface PriceItem {
 export interface SavedModel {
   id: string;
   name: string;
+  updatedAt: string;
   postoData: PostoData;
   prices: PriceItem[];
   taxRates: TaxRates;

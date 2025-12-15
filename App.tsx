@@ -6,7 +6,7 @@ import EditScreen from './screens/EditScreen';
 import PricesScreen from './screens/PricesScreen';
 import NoteScreen from './screens/NoteScreen';
 import PaymentScreen from './screens/PaymentScreen';
-import ApiScreen from './screens/ApiScreen';
+import DataScreen from './screens/ApiScreen'; // Agora é a tela de DADOS
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -14,7 +14,7 @@ import { jsPDF } from 'jspdf';
 const DEFAULT_LAYOUTS: LayoutConfig[] = [
   {
     id: 'padrao_iccar',
-    name: 'Padrão (Igual Foto)',
+    name: 'Modelo POSTO ICCAR',
     fontFamily: 'MONO',
     fontSize: 'SMALL',
     textAlign: 'LEFT',
@@ -46,7 +46,6 @@ const BLANK_POSTO: PostoData = {
   tipoChavePix: 'CNPJ'
 };
 
-// Valores padrão em Porcentagem (%) - ZERADOS
 const DEFAULT_IMPOSTOS_PERCENTAGES = {
   federal: '0,00', 
   estadual: '0,00',
@@ -74,10 +73,8 @@ const BLANK_INVOICE: InvoiceData = {
   impostos: DEFAULT_IMPOSTOS_PERCENTAGES,
 };
 
-const LOCAL_STORAGE_KEY_MODELS = 'nfce_pro_models_v6_full'; 
-const LOCAL_STORAGE_KEY_LAYOUTS = 'nfce_pro_layouts_v2'; 
-const LOCAL_STORAGE_KEY_LAST_MODEL = 'nfce_pro_last_model_id_v6';
-const API_BASE_URL = 'http://localhost:5000'; // URL da API Node.js
+const LOCAL_STORAGE_KEY_LAYOUTS = 'nfce_pro_layouts_v3'; 
+const LOCAL_STORAGE_KEY_MODELS = 'nfce_models_db_v1';
 
 // Tipo para notificação visual
 type NotificationType = {
@@ -86,77 +83,23 @@ type NotificationType = {
   id: number;
 };
 
-// Tipo para Status da API
-export type ApiStatus = {
-  online: boolean;
-  dbConnected: boolean;
-  modelCount: number;
-  lastCheck: string;
-  loading: boolean;
-};
-
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('EDITAR');
   const [isProcessing, setIsProcessing] = useState(false);
   const [btStatus, setBtStatus] = useState<'DISCONNECTED' | 'SEARCHING' | 'CONNECTED'>('DISCONNECTED');
   const [btDevice, setBtDevice] = useState<BluetoothDevice | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
-  // Estado da API
-  const [apiStatus, setApiStatus] = useState<ApiStatus>({
-    online: false,
-    dbConnected: false,
-    modelCount: 0,
-    lastCheck: '',
-    loading: false
-  });
-
   // Estado para Notificações (Toasts)
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
     setNotifications(prev => [...prev, { message, type, id }]);
-    // Remove após 3 segundos
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 3000);
   };
-
-  // --- API CHECKER ---
-  const checkApiStatus = async () => {
-    setApiStatus(prev => ({ ...prev, loading: true }));
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/health`, { method: 'GET', signal: AbortSignal.timeout(3000) });
-      const data = await response.json();
-      
-      if (data && data.status === 'online') {
-        setApiStatus({
-          online: true,
-          dbConnected: data.database?.connected || false,
-          modelCount: data.stats?.models || 0,
-          lastCheck: new Date().toLocaleTimeString(),
-          loading: false
-        });
-      } else {
-        throw new Error("Resposta inválida da API");
-      }
-    } catch (error) {
-      setApiStatus(prev => ({
-        ...prev,
-        online: false,
-        dbConnected: false,
-        lastCheck: new Date().toLocaleTimeString(),
-        loading: false
-      }));
-    }
-  };
-
-  // Verifica API ao iniciar e a cada 10 segundos
-  useEffect(() => {
-    checkApiStatus();
-    const interval = setInterval(checkApiStatus, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   // --- GERENCIAMENTO DE LAYOUTS ---
   const [customLayouts, setCustomLayouts] = useState<LayoutConfig[]>(() => {
@@ -180,15 +123,32 @@ const App: React.FC = () => {
      }
   };
 
-  // --- GERENCIAMENTO DE MODELOS ---
+  // --- GERENCIAMENTO DE MODELOS (LOCAL STORAGE) ---
   const [savedModels, setSavedModels] = useState<SavedModel[]>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error("Erro ao carregar do localStorage", e);
+      return [];
     }
-    return []; 
   });
   
+  // Helper para ler diretamente do Storage (Garante dados frescos)
+  const getModelsDirectly = (): SavedModel[] => {
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Função para recarregar manualmente
+  const loadModelsFromStorage = () => {
+    setSavedModels(getModelsDirectly());
+  };
+
   // ESTADO ATUAL (Edição)
   const [postoData, setPostoData] = useState<PostoData>({ ...BLANK_POSTO });
   const [invoiceData, setInvoiceData] = useState<InvoiceData>({ 
@@ -199,11 +159,6 @@ const App: React.FC = () => {
   const [prices, setPrices] = useState<PriceItem[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRates>({ ...DEFAULT_TAX_RATES }); 
   const [selectedModelId, setSelectedModelId] = useState<string>('');
-
-  // Persistência automática dos modelos
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_MODELS, JSON.stringify(savedModels));
-  }, [savedModels]);
 
   // Sincroniza Taxas (Preços -> Invoice)
   useEffect(() => {
@@ -308,7 +263,7 @@ const App: React.FC = () => {
     }
   };
 
-  // --- CRUD MODELOS ---
+  // --- CRUD MODELOS (ROBUSTO) ---
 
   // 1. LIMPAR / NOVO
   const handleNewModel = (confirmAction = true) => {
@@ -316,108 +271,127 @@ const App: React.FC = () => {
       return;
     }
     
-    // Reseta ID Selecionado e LocalStorage de seleção
     setSelectedModelId('');
-    localStorage.removeItem(LOCAL_STORAGE_KEY_LAST_MODEL);
-    
-    // Reseta todos os campos para BLANK
     setPostoData({ ...BLANK_POSTO });
     setPrices([]);
     setInvoiceData({ ...BLANK_INVOICE, impostos: { ...DEFAULT_IMPOSTOS_PERCENTAGES } });
     setFuels([]);
     setTaxRates({ ...DEFAULT_TAX_RATES });
-    
     setActiveTab('EDITAR');
     
     if (confirmAction) showToast("Novo formulário iniciado", "info");
   };
 
-  // 2. SALVAR (Cria ou Atualiza)
-  const handleSaveModel = () => {
-    const currentData = {
-      postoData: JSON.parse(JSON.stringify(postoData)),
-      prices: JSON.parse(JSON.stringify(prices)),
-      taxRates: JSON.parse(JSON.stringify(taxRates)),
-      invoiceData: JSON.parse(JSON.stringify(invoiceData)),
-      fuels: JSON.parse(JSON.stringify(fuels))
-    };
+  // 2. SALVAR (PERSISTÊNCIA DIRETA)
+  const handleSaveModel = async () => {
+    setIsSaving(true);
+    await new Promise(r => setTimeout(r, 500));
 
-    if (selectedModelId) {
-      // --- ATUALIZAR EXISTENTE ---
-      setSavedModels(prev => prev.map(m => 
-        m.id === selectedModelId 
-          ? { ...m, ...currentData, name: m.name } // Mantém o nome, atualiza dados
-          : m
-      ));
-      showToast("Modelo atualizado com sucesso!", "success");
-    } else {
-      // --- CRIAR NOVO ---
+    try {
       const now = new Date();
-      const timeString = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
-      // Nome automático: Razão Social ou Hora
-      const autoName = postoData.razaoSocial || `Modelo ${timeString}`;
       
-      const newId = Date.now().toString();
-      const newModel: SavedModel = {
-        id: newId,
-        name: autoName,
-        ...currentData
+      // Lê o estado atual do disco para garantir que não sobrescrevemos nada
+      const currentModels = getModelsDirectly();
+
+      const newModelData: SavedModel = {
+        id: selectedModelId || Date.now().toString(),
+        name: selectedModelId 
+              ? (currentModels.find(m => m.id === selectedModelId)?.name || postoData.razaoSocial) 
+              : (postoData.razaoSocial || `Modelo ${now.toLocaleTimeString()}`),
+        updatedAt: now.toISOString(),
+        postoData,
+        prices,
+        taxRates,
+        invoiceData,
+        fuels
       };
 
-      setSavedModels(prev => [...prev, newModel]);
+      let updatedList;
+      if (selectedModelId) {
+        updatedList = currentModels.map(m => m.id === selectedModelId ? newModelData : m);
+      } else {
+        updatedList = [newModelData, ...currentModels];
+      }
 
-      // Seleciona o novo modelo
-      setSelectedModelId(newId);
-      localStorage.setItem(LOCAL_STORAGE_KEY_LAST_MODEL, newId);
+      // Salva explicitamente no LocalStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY_MODELS, JSON.stringify(updatedList));
+      // Atualiza o estado da UI
+      setSavedModels(updatedList);
       
-      showToast(`Modelo "${autoName}" salvo!`, "success");
+      if (!selectedModelId) setSelectedModelId(newModelData.id);
+      
+      showToast("Modelo salvo localmente!", "success");
+
+    } catch (error) {
+      console.error(error);
+      showToast("Erro ao salvar: " + error, "error");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // 3. RENOMEAR
-  const handleRenameModel = () => {
-    if (!selectedModelId) return;
+  // 3. RENOMEAR (PERSISTÊNCIA DIRETA)
+  const handleRenameModel = (targetId?: string) => {
+    const idToRename = targetId || selectedModelId;
+    if (!idToRename) return;
 
-    const currentModel = savedModels.find(m => m.id === selectedModelId);
-    if (!currentModel) return;
+    // Busca dados frescos do disco
+    const currentModels = getModelsDirectly();
+    const modelToRename = currentModels.find(m => m.id === idToRename);
+    
+    if (!modelToRename) {
+      showToast("Modelo não encontrado para renomear", "error");
+      return;
+    }
 
-    const newName = prompt("Digite o novo nome para o modelo:", currentModel.name);
+    const newName = prompt("Digite o novo nome para o modelo:", modelToRename.name);
     
     if (newName && newName.trim() !== "") {
-      setSavedModels(prev => prev.map(m => 
-        m.id === selectedModelId ? { ...m, name: newName.trim() } : m
-      ));
-      showToast("Nome do modelo atualizado!", "success");
+       const updatedList = currentModels.map(m => 
+         m.id === idToRename ? { ...m, name: newName.trim(), updatedAt: new Date().toISOString() } : m
+       );
+       
+       // Salva explicitamente
+       localStorage.setItem(LOCAL_STORAGE_KEY_MODELS, JSON.stringify(updatedList));
+       setSavedModels(updatedList);
+       showToast("Nome atualizado!", "success");
     }
   };
 
-  // 4. DELETAR (Remove e Limpa)
-  const handleDeleteModel = () => {
-    if (!selectedModelId) return;
+  // 4. DELETAR (PERSISTÊNCIA DIRETA)
+  const handleDeleteModel = (targetId?: string) => {
+    const idToDelete = targetId || selectedModelId;
+    if (!idToDelete) return;
 
-    if (confirm("ATENÇÃO: Deseja apagar este modelo permanentemente?")) {
-      // 1. Atualiza lista removendo o item
-      setSavedModels(prev => {
-        const updated = prev.filter(m => m.id !== selectedModelId);
-        return updated;
-      });
+    if (confirm("ATENÇÃO: Deseja apagar este modelo do armazenamento local?")) {
       
-      // 2. Limpa seleção
-      handleNewModel(false);
+      const currentModels = getModelsDirectly();
+      const updatedList = currentModels.filter(m => m.id !== idToDelete);
       
-      showToast("Modelo deletado.", "info");
+      // Salva explicitamente
+      localStorage.setItem(LOCAL_STORAGE_KEY_MODELS, JSON.stringify(updatedList));
+      setSavedModels(updatedList);
+      
+      // Se apagou o modelo que estava aberto, limpa a tela
+      if (idToDelete === selectedModelId) {
+        handleNewModel(false);
+        setSelectedModelId('');
+      }
+      
+      showToast("Modelo removido.", "info");
     }
   };
 
-  // 5. CARREGAR (Selecionar da lista)
+  // 5. CARREGAR
   const handleLoadModel = (modelId: string) => {
     if (!modelId) {
-      // Se selecionou "Criar Novo...", chama a função de novo
       handleNewModel(false);
       return;
     }
 
-    const model = savedModels.find(m => m.id === modelId);
+    const currentModels = getModelsDirectly();
+    const model = currentModels.find(m => m.id === modelId);
+
     if (model) {
       setPostoData(JSON.parse(JSON.stringify(model.postoData)));
       setPrices(JSON.parse(JSON.stringify(model.prices)));
@@ -435,9 +409,10 @@ const App: React.FC = () => {
       setFuels(model.fuels ? JSON.parse(JSON.stringify(model.fuels)) : []);
       
       setSelectedModelId(modelId);
-      localStorage.setItem(LOCAL_STORAGE_KEY_LAST_MODEL, modelId);
       setActiveTab('EDITAR');
       showToast("Modelo carregado", "info");
+    } else {
+      showToast("Erro ao carregar modelo.", "error");
     }
   };
 
@@ -506,8 +481,8 @@ const App: React.FC = () => {
             setFuels={setFuels}
             prices={prices}
             taxRates={taxRates}
+            setTaxRates={setTaxRates} 
             onGenerate={() => { handleGenerateInvoice(); setActiveTab('PAGAMENTO'); }}
-            apiStatus={apiStatus}
           />
         );
       case 'PRECOS':
@@ -540,8 +515,16 @@ const App: React.FC = () => {
             onConfirm={handleConfirmPayment}
           />
         );
-      case 'API':
-        return <ApiScreen apiStatus={apiStatus} onRefresh={checkApiStatus} />;
+      case 'DADOS':
+        return (
+          <DataScreen 
+            onRefresh={loadModelsFromStorage}
+            savedModels={savedModels}
+            onDeleteModel={(id) => handleDeleteModel(id)}
+            onRenameModel={(id) => handleRenameModel(id)}
+            onLoadModel={(id) => handleLoadModel(id)}
+          />
+        );
       default:
         return null;
     }
@@ -569,7 +552,7 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight">NFC-e Pro</h1>
-            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v1.8</span>
+            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v2.1 Local</span>
           </div>
           <div className="flex items-center gap-3 text-blue-400">
             <button 
@@ -601,7 +584,7 @@ const App: React.FC = () => {
 
         <div className="px-4 py-3 bg-slate-800 dark:bg-slate-900">
           <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold flex justify-between">
-            <span>Modelos Salvos</span>
+            <span>Modelos Salvos (Local)</span>
             {selectedModelId && <span className="text-green-400">Editando: {savedModels.find(m => m.id === selectedModelId)?.name}</span>}
             {!selectedModelId && <span className="text-blue-400 font-bold">Novo Modelo (Em Branco)</span>}
           </label>
@@ -616,7 +599,7 @@ const App: React.FC = () => {
                 value={selectedModelId}
                 onChange={(e) => handleLoadModel(e.target.value)}
               >
-                <option value="">{savedModels.length > 0 ? "➕ Criar Novo..." : "Nenhum modelo salvo"}</option>
+                <option value="">{savedModels.length > 0 ? "➕ Selecionar Modelo..." : "Nenhum modelo salvo"}</option>
                 {savedModels.map(m => (
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
@@ -632,10 +615,10 @@ const App: React.FC = () => {
               <FilePlus size={16} />
             </button>
 
-            {/* Botão RENOMEAR */}
+            {/* Botão RENOMEAR (Contexto atual) */}
             {selectedModelId && (
               <button 
-                onClick={handleRenameModel}
+                onClick={() => handleRenameModel()}
                 className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 border-l border-slate-600"
                 title="Renomear Modelo Atual"
               >
@@ -646,7 +629,8 @@ const App: React.FC = () => {
             {/* Botão SALVAR */}
             <button 
               onClick={handleSaveModel}
-              className={`text-white px-3 py-2 flex items-center gap-1 border-l transition-colors
+              disabled={isSaving}
+              className={`text-white px-3 py-2 flex items-center gap-1 border-l transition-colors disabled:opacity-70 disabled:cursor-wait
                 ${selectedModelId 
                   ? 'bg-blue-600 hover:bg-blue-700 border-blue-700' 
                   : 'bg-green-600 hover:bg-green-700 border-green-700'}
@@ -655,13 +639,13 @@ const App: React.FC = () => {
               `}
               title={selectedModelId ? "Atualizar Modelo Existente" : "Salvar como Novo Modelo"}
             >
-              <Save size={16} />
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             </button>
             
-            {/* Botão DELETAR (Só aparece se tiver um modelo selecionado) */}
+            {/* Botão DELETAR (Contexto atual) */}
             {selectedModelId && (
               <button 
-                onClick={handleDeleteModel}
+                onClick={() => handleDeleteModel()}
                 className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-r border-l border-red-600"
                 title="Excluir modelo atual"
               >

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode, Cloud, CloudOff } from 'lucide-react';
+import { Plus, Trash2, Layout, Zap, Lock, AlertCircle, Upload, Loader2, ScanLine, FileCheck, CalendarClock, Percent, Calculator, QrCode, Save, Database } from 'lucide-react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, TaxRates, PixKeyType } from '../types';
 import { GoogleGenAI } from "@google/genai";
-import { ApiStatus } from '../App';
 
 interface EditScreenProps {
   postoData: PostoData;
@@ -12,9 +11,9 @@ interface EditScreenProps {
   fuels: FuelItem[];
   setFuels: React.Dispatch<React.SetStateAction<FuelItem[]>>;
   prices: PriceItem[]; 
-  taxRates: TaxRates; // Taxas % para calculo automatico
+  taxRates: TaxRates; 
+  setTaxRates: React.Dispatch<React.SetStateAction<TaxRates>>;
   onGenerate: () => void;
-  apiStatus: ApiStatus; // Recebe o status da API
 }
 
 const formatCNPJ = (value: string) => {
@@ -38,18 +37,9 @@ const formatCPF = (value: string) => {
 
 const formatPhone = (value: string) => {
   const v = value.replace(/\D/g, "").slice(0, 11);
-  
-  if (v.length > 10) {
-    // Celular: (XX) XXXXX-XXXX
-    return v.replace(/^(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-  } 
-  if (v.length > 6) {
-    // Fixo ou Celular incompleto: (XX) XXXX-XXXX
-    return v.replace(/^(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
-  }
-  if (v.length > 2) {
-    return v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
-  }
+  if (v.length > 10) return v.replace(/^(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  if (v.length > 6) return v.replace(/^(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
+  if (v.length > 2) return v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
   return v;
 };
 
@@ -57,9 +47,8 @@ const validateCNPJ = (cnpj: string): boolean => {
   cnpj = cnpj.replace(/[^\d]+/g, '');
   if (cnpj === '') return true; 
   if (cnpj.length !== 14) return false;
-  // Basic validation logic...
   if (/^(\d)\1+$/.test(cnpj)) return false;
-  return true; // Simplified for speed
+  return true; 
 };
 
 const parseLocaleNumber = (stringNumber: string) => {
@@ -97,14 +86,13 @@ const EditScreen: React.FC<EditScreenProps> = ({
   setFuels,
   prices,
   taxRates,
-  onGenerate,
-  apiStatus
+  setTaxRates,
+  onGenerate
 }) => {
   const [cnpjError, setCnpjError] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cálculos em tempo real para visualização
   const isCard = invoiceData.formaPagamento === 'CARTAO' || invoiceData.formaPagamento === 'CREDITO' || invoiceData.formaPagamento === 'DEBITO';
   const totalItems = fuels.reduce((acc, f) => {
     const q = parseLocaleNumber(f.quantity);
@@ -126,32 +114,20 @@ const EditScreen: React.FC<EditScreenProps> = ({
 
   const handlePostoChange = (field: keyof PostoData, value: string) => {
     let finalValue = value;
-    if (field === 'cnpj') {
-      finalValue = formatCNPJ(value);
-    }
+    if (field === 'cnpj') finalValue = formatCNPJ(value);
     setPostoData({ ...postoData, [field]: finalValue });
   };
 
   const handlePixKeyChange = (value: string) => {
      let formatted = value;
-
-     if (postoData.tipoChavePix === 'CNPJ') {
-       formatted = formatCNPJ(value);
-     } else if (postoData.tipoChavePix === 'CPF') {
-       formatted = formatCPF(value);
-     } else if (postoData.tipoChavePix === 'TELEFONE') {
-       formatted = formatPhone(value);
-     } else if (postoData.tipoChavePix === 'EMAIL') {
-       // Logica E-mail: Se o valor atual (state) já termina com .com,
-       // e o usuário está tentando digitar algo novo (length maior),
-       // bloqueia se o novo valor não for uma "deleção" (length menor).
+     if (postoData.tipoChavePix === 'CNPJ') formatted = formatCNPJ(value);
+     else if (postoData.tipoChavePix === 'CPF') formatted = formatCPF(value);
+     else if (postoData.tipoChavePix === 'TELEFONE') formatted = formatPhone(value);
+     else if (postoData.tipoChavePix === 'EMAIL') {
        const currentValue = postoData.chavePix || '';
-       if (currentValue.endsWith('.com') && value.length > currentValue.length) {
-         return; // Bloqueia adição
-       }
-       formatted = value.toLowerCase().replace(/\s/g, ''); // Remove espaços
+       if (currentValue.endsWith('.com') && value.length > currentValue.length) return;
+       formatted = value.toLowerCase().replace(/\s/g, '');
      }
-     
      setPostoData({ ...postoData, chavePix: formatted });
   };
 
@@ -179,7 +155,6 @@ const EditScreen: React.FC<EditScreenProps> = ({
   const handleFuelProductChange = (id: string, productId: string) => {
     const selectedPrice = prices.find(p => p.id === productId);
     if (!selectedPrice) return;
-
     setFuels(fuels.map(f => f.id === id ? { 
       ...f, 
       productId: selectedPrice.id, 
@@ -228,7 +203,6 @@ const EditScreen: React.FC<EditScreenProps> = ({
 
     setIsUploading(true);
     try {
-      // 1. Convert to Base64
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -240,70 +214,28 @@ const EditScreen: React.FC<EditScreenProps> = ({
         reader.readAsDataURL(file);
       });
 
-      // 2. Call Gemini API
-      if (!process.env.API_KEY) {
-        throw new Error("API_KEY não configurada. Configure process.env.API_KEY para usar o OCR.");
-      }
+      if (!process.env.API_KEY) throw new Error("API_KEY não configurada.");
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `
         Analise a imagem deste comprovante fiscal (NFC-e) e extraia os dados em formato JSON.
-        
-        INSTRUÇÃO PARA IMPOSTOS:
-        1. Localize os valores aproximados de tributos (Federal, Estadual, Municipal).
-        2. Tente identificar a PORCENTAGEM (%). Se a nota mostrar apenas o valor em R$, tente estimar a porcentagem baseada no total da nota.
-        3. Priorize retornar a PORCENTAGEM nos campos de impostos.
-        
         Estrutura JSON esperada:
         {
-          "posto": {
-            "razaoSocial": "string",
-            "cnpj": "string",
-            "inscEstadual": "string",
-            "endereco": "string"
-          },
-          "invoice": {
-            "numero": "string",
-            "serie": "string",
-            "dataEmissao": "string",
-            "chaveAcesso": "string",
-            "protocolo": "string"
-          },
-          "impostos": {
-             "federal": "string (ex: 13,45)",
-             "estadual": "string (ex: 18,00)",
-             "municipal": "string (ex: 0,00)"
-          },
-          "items": [
-            {
-              "code": "string",
-              "name": "string",
-              "quantity": "number",
-              "unit": "string",
-              "unitPrice": "number",
-              "total": "number"
-            }
-          ]
+          "posto": { "razaoSocial": "string", "cnpj": "string", "inscEstadual": "string", "endereco": "string" },
+          "invoice": { "numero": "string", "serie": "string", "dataEmissao": "string", "chaveAcesso": "string", "protocolo": "string" },
+          "impostos": { "federal": "string", "estadual": "string", "municipal": "string" },
+          "items": [{ "code": "string", "name": "string", "quantity": "number", "unit": "string", "unitPrice": "number", "total": "number" }]
         }
       `;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: {
-          parts: [
-            { inlineData: { mimeType: file.type, data: base64Data } },
-            { text: prompt }
-          ]
-        },
-        config: {
-          responseMimeType: "application/json"
-        }
+        contents: { parts: [{ inlineData: { mimeType: file.type, data: base64Data } }, { text: prompt }] },
+        config: { responseMimeType: "application/json" }
       });
 
-      const jsonText = response.text;
-      const data = JSON.parse(jsonText);
+      const data = JSON.parse(response.text);
 
-      // 3. Map to App State
       if (data.posto) {
         setPostoData(prev => ({
           ...prev,
@@ -326,14 +258,11 @@ const EditScreen: React.FC<EditScreenProps> = ({
       }
       
       if (data.impostos) {
-         setInvoiceData(prev => ({
-           ...prev,
-           impostos: {
-             federal: data.impostos.federal || prev.impostos.federal,
-             estadual: data.impostos.estadual || prev.impostos.estadual,
-             municipal: data.impostos.municipal || prev.impostos.municipal,
-           }
-         }));
+         setTaxRates({
+           federal: data.impostos.federal || taxRates.federal || '0,00',
+           estadual: data.impostos.estadual || taxRates.estadual || '0,00',
+           municipal: data.impostos.municipal || taxRates.municipal || '0,00'
+         });
       }
 
       if (data.items && Array.isArray(data.items)) {
@@ -349,7 +278,6 @@ const EditScreen: React.FC<EditScreenProps> = ({
         }));
         setFuels(newFuels);
       }
-
       alert("Dados extraídos com sucesso!");
 
     } catch (error) {
@@ -364,22 +292,12 @@ const EditScreen: React.FC<EditScreenProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Title & Status Indicator */}
+      {/* Title */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
            <h2 className="text-xl font-bold text-slate-700 dark:text-slate-100">Editar Dados</h2>
-           
-           {/* INDICADOR DE ONLINE/OFFLINE */}
-           <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase mt-1 px-2 py-0.5 rounded-full w-fit transition-colors
-              ${apiStatus.online 
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-              }`}>
-              {apiStatus.online ? <Cloud size={10} /> : <CloudOff size={10} />}
-              {apiStatus.online ? 'Sistema Online' : 'Modo Offline'}
-           </div>
+           <span className="text-[10px] text-slate-400 font-medium">Preencha os dados manualmente ou via upload</span>
         </div>
-        
         <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-400">
           <Layout size={20} />
         </div>
@@ -414,7 +332,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
             </div>
             <div className="text-left">
               <span className="block font-bold text-sm uppercase">Preencher via Upload</span>
-              <span className="block text-xs text-blue-600/70 dark:text-blue-400/70">Reconhece valores automaticamente</span>
+              <span className="block text-xs text-blue-600/70 dark:text-blue-400/70">Reconhece valores e atualiza taxas</span>
             </div>
             <Upload size={20} className="ml-auto text-blue-400" />
           </>
@@ -458,7 +376,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
              </div>
              <div className="flex gap-2 mb-2">
                <select 
-                 className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-xs font-bold text-slate-700 dark:text-slate-200 px-2 h-10 outline-none focus:border-blue-500"
+                 className="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-xs font-bold text-slate-700 dark:text-slate-200 px-2 h-10 outline-none focus:border-blue-500 max-w-[120px]"
                  value={postoData.tipoChavePix || 'CNPJ'}
                  onChange={(e) => setPostoData({...postoData, tipoChavePix: e.target.value as PixKeyType, chavePix: ''})}
                >
@@ -468,6 +386,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
                  <option value="EMAIL">E-MAIL</option>
                  <option value="ALEATORIA">ALEATÓRIA</option>
                </select>
+               
                <input 
                  className="flex-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-3 h-10 text-sm text-slate-700 dark:text-slate-100 outline-none focus:border-blue-500 transition-all font-mono"
                  value={postoData.chavePix || ''}
@@ -481,7 +400,9 @@ const EditScreen: React.FC<EditScreenProps> = ({
                  }
                />
              </div>
-             <p className="text-[10px] text-slate-400">Esta chave será usada para gerar o QR Code de pagamento.</p>
+             <p className="text-[10px] text-slate-400">
+               Esta chave será usada para gerar o QR Code de pagamento automaticamente.
+             </p>
           </div>
 
           <div>
@@ -608,7 +529,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
           <h3 className="text-slate-500 dark:text-slate-400 font-semibold text-sm uppercase flex items-center gap-1">
             <Percent size={14} /> ALÍQUOTAS (%)
           </h3>
-          <span className="text-[10px] text-slate-400 flex items-center gap-1"><Lock size={8}/> Fixo</span>
+          <span className="text-[10px] text-slate-400 flex items-center gap-1"><Lock size={8}/> Fixo (Edite em Preços)</span>
         </div>
         
         <div className="grid grid-cols-3 gap-3">
@@ -706,7 +627,7 @@ const EditScreen: React.FC<EditScreenProps> = ({
               <FileCheck size={14} /> Detalhes da Nota (Auto)
            </h4>
            
-           <div className="grid grid-cols-3 gap-3">
+           <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] text-slate-400 dark:text-slate-500 block mb-1">Número</label>
                 <input 
@@ -723,15 +644,6 @@ const EditScreen: React.FC<EditScreenProps> = ({
                   className="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs text-slate-500 dark:text-slate-400 cursor-not-allowed"
                   value={invoiceData.serie} 
                   placeholder="---"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-slate-400 dark:text-slate-500 block mb-1">Emissão</label>
-                <input 
-                  readOnly 
-                  className="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded p-2 text-[10px] text-slate-500 dark:text-slate-400 cursor-not-allowed"
-                  value={invoiceData.dataEmissao ? invoiceData.dataEmissao.split(' ')[0] : '---'} 
-                  placeholder="DD/MM/YYYY"
                 />
               </div>
            </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, DollarSign, FileText, CreditCard, Wifi } from 'lucide-react';
+import { Edit2, DollarSign, FileText, CreditCard, Database } from 'lucide-react';
 import { TabId } from '../types';
 
 interface TabBarProps {
@@ -13,7 +13,7 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
     { id: 'PRECOS', label: 'PREÇOS', icon: DollarSign },
     { id: 'NOTA', label: 'NOTA', icon: FileText },
     { id: 'PAGAMENTO', label: 'PAGAMENTO', icon: CreditCard },
-    { id: 'API', label: '', icon: Wifi },
+    { id: 'DADOS', label: 'DADOS', icon: Database },
   ];
 
   return (
