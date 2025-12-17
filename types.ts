@@ -50,6 +50,7 @@ export interface PostoData {
   cnpj: string;
   inscEstadual: string;
   endereco: string;
+  fone: string; // Novo campo
   activeLayoutId: string;
   chavePix?: string;
   tipoChavePix?: PixKeyType;

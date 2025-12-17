@@ -1,118 +1,83 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#0a0a0b" />
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="format-detection" content="telephone=no">
-    <title>NFC-e Pro Mobile</title>
+    <title>NFC-e Pro | Premium Edition</title>
     
     <link rel="manifest" href="/manifest.json" />
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10605/10605963.png">
-
-    <!-- 
-      CONFIGURAÇÃO HÍBRIDA:
-      1. 'src/styles.css' contém o código fonte Tailwind (para build externo/local).
-      2. O script CDN abaixo é mantido para que o projeto rode "AQUI" (sem build step),
-         mas utiliza a configuração que definimos no tailwind.config.js (replicada aqui para o CDN).
-    -->
-    
-    <!-- Link para CSS Compilado (Se rodar build externo, use dist/output.css) -->
-    <!-- <link href="/dist/output.css" rel="stylesheet"> -->
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      /* 
-        Fallback configuration for CDN runtime. 
-        In a real build environment, this logic is inside tailwind.config.js 
-      */
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
-            screens: {
-              'xs': '375px',
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: '0' },
-                '100%': { opacity: '1' },
-              },
-              slideDown: {
-                '0%': { transform: 'translateY(-1rem)', opacity: '0' },
-                '100%': { transform: 'translateY(0)', opacity: '1' },
-              },
-              slideDownSm: {
-                '0%': { transform: 'translateY(-0.5rem)', opacity: '0' },
-                '100%': { transform: 'translateY(0)', opacity: '1' },
-              },
-              zoomIn: {
-                '0%': { transform: 'scale(0.95)', opacity: '0' },
-                '100%': { transform: 'scale(1)', opacity: '1' },
-              },
-              toastSlide: {
-                '0%': { transform: 'translateY(-1.25rem)', opacity: '0' },
-                '100%': { transform: 'translateY(0)', opacity: '1' },
+            colors: {
+              brand: {
+                primary: '#6366f1',
+                secondary: '#a855f7',
+                accent: '#06b6d4',
+                dark: '#0a0a0b',
+                glass: 'rgba(255, 255, 255, 0.03)',
               }
             },
+            borderRadius: {
+              'xl': '1rem',
+              '2xl': '1.5rem',
+              '3xl': '2rem',
+            },
+            keyframes: {
+              shimmer: { '100%': { transform: 'translateX(100%)' } },
+              float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-5px)' } },
+              reveal: { '0%': { opacity: '0', transform: 'scale(0.95)' }, '100%': { opacity: '1', transform: 'scale(1)' } }
+            },
             animation: {
-              'fade-in': 'fadeIn 0.2s ease-out',
-              'slide-down': 'slideDown 0.3s ease-out',
-              'slide-down-sm': 'slideDownSm 0.2s ease-out',
-              'zoom-in': 'zoomIn 0.2s ease-out',
-              'toast-slide': 'toastSlide 0.3s ease-out',
+              'shimmer': 'shimmer 2s infinite',
+              'float': 'float 3s ease-in-out infinite',
+              'reveal': 'reveal 0.3s cubic-bezier(0, 0, 0.2, 1) forwards',
             }
           }
         }
       }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter+Tight:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
-    <!-- Estilos globais foram movidos para src/styles.css para projetos com build.
-         Para este ambiente sem build, mantemos styles críticos aqui para garantir funcionamento. -->
     <style>
       body {
-        font-family: 'Inter', sans-serif;
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
-        user-select: none;
-        -webkit-user-select: none;
-        min-height: 100dvh;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #f8fafc;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
       }
-      input, textarea {
-        user-select: text;
-        -webkit-user-select: text;
+      .dark body {
+        background-color: #0a0a0b;
+        color: #f8fafc;
       }
-      .font-mono { font-family: 'Roboto Mono', monospace; }
+      .font-thermal {
+        font-family: 'Inter Tight', sans-serif;
+        letter-spacing: -0.02em;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .btn-primary:active { transform: scale(0.96); opacity: 0.9; }
+      
       .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       
       @media print {
-        @page { margin: 0; size: auto; }
-        html, body, #root, main {
-           height: auto !important; min-height: 0 !important; overflow: visible !important;
-           display: block !important; position: static !important;
-           background-color: white !important;
-        }
-        header, nav, .fixed, .sticky, button, .print\:hidden { display: none !important; }
-        main { padding: 0 !important; margin: 0 !important; border: none !important; }
-        
-        #printable-receipt {
-          width: 100% !important; max-width: none !important; display: block !important;
-          position: static !important; margin: 0 auto !important; padding: 0 !important;
-          box-shadow: none !important; background-color: transparent !important;
-        }
-        
-        /* Garante que nenhum fundo colorido seja impresso, permitindo que a cor do papel prevaleça */
-        #printable-receipt * {
-          visibility: visible !important; color: black !important;
-          background-color: transparent !important;
-          -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
-        }
-        
-        body > *:not(#root) { display: none !important; }
+        header, nav, .no-print { display: none !important; }
+        body { background: white !important; color: black !important; }
       }
     </style>
   <script type="importmap">
@@ -129,7 +94,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+  <body class="selection:bg-indigo-500/30">
     <div id="root"></div>
   </body>
 </html>

@@ -1,3 +1,4 @@
+
 import { SavedModel, PostoData, InvoiceData, LayoutConfig } from '../types';
 
 // --- CONSTANTES ---
@@ -9,6 +10,7 @@ export const BLANK_POSTO: PostoData = {
   cnpj: '',
   inscEstadual: '',
   endereco: '',
+  fone: '',
   activeLayoutId: 'padrao_iccar',
   chavePix: '',
   tipoChavePix: 'CNPJ'
@@ -33,7 +35,7 @@ export const BLANK_INVOICE: InvoiceData = {
 export const DEFAULT_LAYOUTS: LayoutConfig[] = [
   {
     id: 'padrao_iccar',
-    name: 'Modelo Moderno (ICCar)',
+    name: 'Modelo Realista (Posto ICCAR)',
     fontFamily: 'SANS',
     fontSize: 'SMALL',
     textAlign: 'CENTER',
@@ -47,9 +49,9 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     customTexts: {
       headerTitle: 'DANFE NFC-e - Documento Auxiliar de Nota Fiscal\nde Consumidor Eletrônica',
       subHeader: 'NFC-e não permite aproveitamento de crédito de ICMS',
-      taxLabel: 'Informações Adicionais de Interesse do Contribuinte',
+      taxLabel: 'INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE',
       consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
-      footerMessage: 'Consulte pela Chave de Acesso em'
+      footerMessage: 'Consulte pela Chave de Acesso em:'
     }
   },
   {
@@ -96,7 +98,7 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
   }
 ];
 
-// --- MODELO PADRÃO ICCAR (FIXO - LIMPO) ---
+// --- MODELO PADRÃO ICCAR (REALISTA DA FOTO) ---
 export const ICCAR_DEFAULT_MODEL: SavedModel = {
   id: 'iccar_padrao_fixo',
   name: 'POSTO ICCAR LTDA',
@@ -106,21 +108,30 @@ export const ICCAR_DEFAULT_MODEL: SavedModel = {
     cnpj: '02.280.133/0047-77',
     inscEstadual: '124846041',
     endereco: 'ROD BR 010, 25\nJARDIM TROPICAL, IMPERATRIZ - MA',
+    fone: '(99) 3524-1111',
     activeLayoutId: 'padrao_iccar',
     chavePix: '02.280.133/0047-77',
     tipoChavePix: 'CNPJ'
   },
   taxRates: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' },
   prices: [
-    { id: '1', code: '1', name: 'GASOLINA COMUM', unit: 'L', price: '5,590', priceCard: '5,590' },
-    { id: '2', code: '2', name: 'ETANOL COMUM', unit: 'L', price: '3,490', priceCard: '3,490' },
-    { id: '3', code: '3', name: 'DIESEL S10', unit: 'L', price: '5,510', priceCard: '5,890' },
+    { id: '1', code: '1', name: 'BS10 DIESEL BS10', unit: 'L', price: '5,510', priceCard: '5,510' },
+    { id: '2', code: '2', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,890', priceCard: '5,890' },
   ],
-  invoiceData: { ...BLANK_INVOICE, impostos: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' } },
+  invoiceData: { 
+    ...BLANK_INVOICE, 
+    placa: 'OIB4C39',
+    km: '740076',
+    operador: 'SISTEMA',
+    numero: '59784',
+    serie: '1',
+    urlQrCode: 'http://www.nfce.sefaz.ma.gov.br/portal/consultanFe.do?method=preFilterCupom',
+    impostos: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' } 
+  },
   fuels: []
 };
 
-// --- MODELO NOVO GUIMARÃES (LIMPO) ---
+// ... (Outros modelos permanecem iguais)
 export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   id: 'guimaraes_modelo_fixo',
   name: 'AUTO POSTO GUIMARAES LTDA',
@@ -130,6 +141,7 @@ export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
     cnpj: '02.855.790/0001-12',
     inscEstadual: '', 
     endereco: 'BR 010, SN - KM 1350 - MARANHÃO NOVO\nIMPERATRIZ - MA',
+    fone: '(99) 3525-2222',
     activeLayoutId: 'modelo_guimaraes',
     chavePix: '',
     tipoChavePix: 'CNPJ'
@@ -140,7 +152,6 @@ export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   ],
   invoiceData: {
     ...BLANK_INVOICE,
-    // Dados Fiscais Iniciam VAZIOS para não aparecerem automaticamente
     numero: '',
     serie: '',
     dataEmissao: '',
@@ -157,7 +168,6 @@ export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   fuels: []
 };
 
-// --- MODELO POSTO ALMEIDA 2 (BASEADO NA FOTO) ---
 export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
   id: 'almeida_modelo_fixo',
   name: 'POSTO ALMEIDA 2',
@@ -167,6 +177,7 @@ export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
     cnpj: '10.254.688/0002-70',
     inscEstadual: '122047940',
     endereco: 'RODOVIA BR226, 0 TRIZIDELA\nBARRA DO CORDA-MA 65950-000\nFone:(99)8511-4995',
+    fone: '(99) 8511-4995',
     activeLayoutId: 'modelo_almeida',
     chavePix: '',
     tipoChavePix: 'CNPJ'
@@ -181,11 +192,11 @@ export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
     serie: '',
     dataEmissao: '',
     chaveAcesso:"",
-    protocolo: '', // Contingência geralmente não tem protocolo imediato
+    protocolo: '',
     urlQrCode: 'http://www.sefaz.ma.gov.br/nfce/consulta',
-    formaPagamento: '',
+    formaPagamento: 'DINHEIRO',
     impostos: { federal: '9,5000', estadual: '20,1000', municipal: '0,00' },
   
   },
-  fuels: [] // O usuário adicionará os itens
+  fuels: []
 };

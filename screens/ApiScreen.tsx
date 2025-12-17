@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Trash2, Download, Upload, HardDrive, Edit3, ArrowUpRight, FolderOpen, AlertTriangle } from 'lucide-react';
+import { Database, Trash2, Download, Upload, HardDrive, Edit3, ArrowUpRight, FolderOpen, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { SavedModel, LayoutConfig } from '../types';
 
 interface DataScreenProps {
@@ -27,210 +27,115 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
       const models = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS) || '[]';
       const layouts = localStorage.getItem(LOCAL_STORAGE_KEY_LAYOUTS) || '';
       const totalBytes = new Blob([models]).size + new Blob([layouts]).size;
-      
-      if (totalBytes > 1024 * 1024) {
-        setDbSize(`${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
-      } else {
-        setDbSize(`${(totalBytes / 1024).toFixed(2)} KB`);
-      }
-    } catch {
-      setDbSize('Erro');
-    }
+      setDbSize(totalBytes > 1024 * 1024 ? `${(totalBytes / (1024 * 1024)).toFixed(2)} MB` : `${(totalBytes / 1024).toFixed(2)} KB`);
+    } catch { setDbSize('Err'); }
   };
 
   const handleExport = () => {
-    const data = {
-      models: savedModels,
-      layouts: JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_LAYOUTS) || '[]'),
-      exportedAt: new Date().toISOString(),
-      version: '1.0.0'
-    };
-
+    const data = { models: savedModels, layouts: JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_LAYOUTS) || '[]'), exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
+    link.href = URL.createObjectURL(blob);
     link.download = `backup_nfce_pro_${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const content = e.target?.result as string;
-        const data = JSON.parse(content);
-        
-        let modelsToImport: SavedModel[] = [];
-        let layoutsToImport: LayoutConfig[] | undefined = undefined;
-
-        // LÓGICA DE COMPATIBILIDADE DE BACKUP
-        if (Array.isArray(data)) {
-           // Formato Antigo (V1): Apenas um array de modelos
-           modelsToImport = data;
-        } else if (data.models && Array.isArray(data.models)) {
-           // Formato Novo (V2/V3): Objeto com 'models' e 'layouts'
-           modelsToImport = data.models;
-           if (data.layouts && Array.isArray(data.layouts)) {
-             layoutsToImport = data.layouts;
-           }
-        } else {
-           throw new Error("Formato de arquivo não reconhecido.");
-        }
-
-        if (modelsToImport.length === 0) {
-           alert("O arquivo de backup não contém modelos válidos.");
-           return;
-        }
-
-        if (confirm(`Restaurar backup com ${modelsToImport.length} modelos?\n\nISSO SUBSTITUIRÁ OS DADOS ATUAIS!`)) {
-           onImportBackup(modelsToImport, layoutsToImport);
-        }
-
-      } catch (err) {
-        alert("Erro ao importar: " + (err as Error).message);
-      } finally {
-        // Limpa o input para permitir selecionar o mesmo arquivo novamente se necessário
-        event.target.value = '';
-      }
+        const data = JSON.parse(e.target?.result as string);
+        const models = Array.isArray(data) ? data : data.models;
+        if (confirm(`Importar ${models.length} modelos? Isso substituirá os atuais.`)) onImportBackup(models, data.layouts);
+      } catch { alert("Arquivo inválido"); }
     };
     reader.readAsText(file);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600 dark:text-blue-400">
-          <Database size={24} />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Gerenciador de Dados</h2>
-          <p className="text-xs text-slate-500">Dados armazenados localmente no navegador.</p>
+    <div className="space-y-8 animate-reveal">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-black text-indigo-500 uppercase tracking-[0.3em]">Gestão de Dados</h3>
+        <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-1 rounded-lg">
+          <ShieldCheck size={12} className="text-emerald-500" />
+          <span className="text-[9px] font-black text-emerald-500 uppercase">Local Secure</span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
-           <div className="flex items-center gap-2 text-slate-500 mb-1">
-             <HardDrive size={16} />
-             <span className="text-xs font-bold uppercase">Armazenamento</span>
+        <div className="glass-card rounded-3xl p-5 shadow-lg border border-white/5">
+           <div className="flex items-center gap-2 text-slate-500 mb-2">
+             <HardDrive size={14} />
+             <span className="text-[9px] font-black uppercase tracking-widest">Cache</span>
            </div>
-           <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dbSize}</div>
+           <div className="text-2xl font-black dark:text-white tracking-tight">{dbSize}</div>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
-           <div className="flex items-center gap-2 text-slate-500 mb-1">
-             <Database size={16} />
-             <span className="text-xs font-bold uppercase">Modelos</span>
+        <div className="glass-card rounded-3xl p-5 shadow-lg border border-white/5">
+           <div className="flex items-center gap-2 text-slate-500 mb-2">
+             <Database size={14} />
+             <span className="text-[9px] font-black uppercase tracking-widest">Projetos</span>
            </div>
-           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{savedModels.length}</div>
+           <div className="text-2xl font-black text-indigo-500 tracking-tight">{savedModels.length}</div>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-         <div className="bg-slate-50 dark:bg-slate-700/50 px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-          <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center gap-2">
-            <FolderOpen size={16} /> Meus Modelos
-          </h3>
+      <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5">
+         <div className="bg-white/5 px-6 py-4 flex items-center gap-3">
+          <FolderOpen size={18} className="text-indigo-400" />
+          <h3 className="font-black text-xs uppercase tracking-widest dark:text-white">Biblioteca de Modelos</h3>
         </div>
-        <div className="divide-y divide-slate-100 dark:divide-slate-700 max-h-[400px] overflow-y-auto">
-           {savedModels.length === 0 && (
-             <div className="p-8 text-center flex flex-col items-center gap-3 text-slate-400">
-               <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-full">
-                 <Database size={32} className="opacity-30" />
+        <div className="divide-y divide-white/5">
+           {savedModels.length === 0 ? (
+             <div className="p-10 text-center opacity-30">Vazio</div>
+           ) : (
+             savedModels.map(model => (
+               <div key={model.id} className="p-5 flex items-center justify-between group hover:bg-white/5 transition-colors">
+                  <div className="flex-1 overflow-hidden">
+                     <div className="font-bold text-sm dark:text-white truncate mb-0.5">{model.name}</div>
+                     <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
+                        {new Date(model.updatedAt).toLocaleDateString()} • {new Date(model.updatedAt).toLocaleTimeString().slice(0,5)}
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                     <button onClick={() => onLoadModel(model.id)} className="w-9 h-9 flex items-center justify-center bg-indigo-500/10 text-indigo-400 rounded-xl"><ArrowUpRight size={18} /></button>
+                     <button onClick={() => onRenameModel(model.id)} className="w-9 h-9 flex items-center justify-center text-slate-600"><Edit3 size={18} /></button>
+                     <button onClick={() => onDeleteModel(model.id)} className="w-9 h-9 flex items-center justify-center text-slate-600 hover:text-rose-500"><Trash2 size={18} /></button>
+                  </div>
                </div>
-               <div className="flex flex-col">
-                 <span className="text-sm font-bold">Nenhum modelo encontrado.</span>
-                 <span className="text-xs">Crie seu primeiro modelo na aba "EDITAR".</span>
-               </div>
-             </div>
+             ))
            )}
-           {savedModels.map(model => (
-             <div key={model.id} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex items-center justify-between group">
-                <div className="flex-1 overflow-hidden mr-3">
-                   <div className="font-bold text-slate-700 dark:text-slate-200 truncate text-sm mb-0.5">{model.name}</div>
-                   <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                      <span>Atualizado: {new Date(model.updatedAt).toLocaleDateString()}</span>
-                      <span className="hidden sm:inline">•</span>
-                      <span className="hidden sm:inline">{new Date(model.updatedAt).toLocaleTimeString().slice(0,5)}</span>
-                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                   <button 
-                     onClick={(e) => { e.stopPropagation(); onLoadModel(model.id); }}
-                     className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-md text-xs font-bold transition-colors flex items-center gap-1"
-                     title="Carregar para Edição"
-                   >
-                     <ArrowUpRight size={14} /> Abrir
-                   </button>
-                   <button 
-                     onClick={(e) => { e.stopPropagation(); onRenameModel(model.id); }}
-                     className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                     title="Renomear"
-                   >
-                     <Edit3 size={16} />
-                   </button>
-                   <button 
-                     onClick={(e) => { e.stopPropagation(); onDeleteModel(model.id); }}
-                     className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                     title="Excluir Permanentemente"
-                   >
-                     <Trash2 size={16} />
-                   </button>
-                </div>
-             </div>
-           ))}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-        <div className="bg-slate-50 dark:bg-slate-700/50 px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-          <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200">Ferramentas de Sistema</h3>
-        </div>
-        <div className="p-4 space-y-3">
-          
-          <button 
-            onClick={handleExport}
-            className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group"
-          >
-             <div className="flex items-center gap-3">
-               <div className="bg-green-100 dark:bg-green-900/30 text-green-600 p-2 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors">
-                 <Download size={20} />
-               </div>
-               <div className="text-left">
-                 <div className="font-bold text-sm text-slate-700 dark:text-slate-200">Fazer Backup (Download)</div>
-                 <div className="text-xs text-slate-400">Salvar todos os modelos em arquivo .json</div>
-               </div>
-             </div>
-          </button>
-
-          <label className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer">
-             <div className="flex items-center gap-3">
-               <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 p-2 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
-                 <Upload size={20} />
-               </div>
-               <div className="text-left">
-                 <div className="font-bold text-sm text-slate-700 dark:text-slate-200">Restaurar Backup</div>
-                 <div className="text-xs text-slate-400">Carregar arquivo .json do computador</div>
-               </div>
-             </div>
-             <input type="file" className="hidden" accept=".json" onChange={handleImport} />
-          </label>
-
-          <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700">
-            <button 
-              onClick={onClearAllData}
-              className="w-full flex items-center justify-center gap-2 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg text-xs font-bold transition-colors"
-            >
-              <AlertTriangle size={14} /> Apagar Todos os Dados (Reset)
-            </button>
+      <div className="grid grid-cols-1 gap-3">
+        <button onClick={handleExport} className="w-full flex items-center gap-4 p-5 glass-card rounded-3xl group">
+          <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
+            <Download size={22} />
           </div>
+          <div className="text-left">
+            <div className="font-black text-xs dark:text-white uppercase tracking-widest">Backup Global</div>
+            <div className="text-[10px] text-slate-500 font-bold">Exportar tudo para JSON</div>
+          </div>
+        </button>
 
-        </div>
+        <label className="w-full flex items-center gap-4 p-5 glass-card rounded-3xl cursor-pointer group">
+          <div className="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
+            <Upload size={22} />
+          </div>
+          <div className="text-left">
+            <div className="font-black text-xs dark:text-white uppercase tracking-widest text-blue-400">Restaurar Dados</div>
+            <div className="text-[10px] text-slate-500 font-bold">Importar arquivo de backup</div>
+          </div>
+          <input type="file" className="hidden" accept=".json" onChange={handleImport} />
+        </label>
+      </div>
+
+      <div className="pt-4">
+        <button onClick={onClearAllData} className="w-full py-4 text-rose-500/50 hover:text-rose-500 text-[10px] font-black uppercase tracking-[0.3em] transition-colors flex items-center justify-center gap-2">
+          <AlertTriangle size={14} /> Wipe All Local Storage
+        </button>
       </div>
     </div>
   );
