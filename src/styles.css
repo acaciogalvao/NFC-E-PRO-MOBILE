@@ -45,6 +45,7 @@ input, textarea {
      overflow: visible !important;
      display: block !important;
      position: static !important;
+     background-color: white !important; /* Fundo branco/transparente global */
   }
 
   /* 2. Ocultar Elementos de Interface Padrão */
@@ -68,13 +69,14 @@ input, textarea {
     margin: 0 auto !important;
     padding: 0 !important;
     box-shadow: none !important;
-    background-color: white !important;
+    background-color: transparent !important; /* Garante uso do papel */
   }
   
-  /* 5. Garante visibilidade e cor preta para o conteúdo do recibo */
+  /* 5. Garante visibilidade, cor preta e remove fundos coloridos (ex: cinza do Guimarães) */
   #printable-receipt * {
     visibility: visible !important;
     color: black !important;
+    background-color: transparent !important; /* REMOVE FUNDOS COLORIDOS */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

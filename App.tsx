@@ -88,7 +88,7 @@ const BLANK_INVOICE: InvoiceData = {
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,00', estadual: '0,00', municipal: '0,00' };
 
-// --- MODELO PADRÃO ICCAR (FIXO) ---
+// --- MODELO PADRÃO ICCAR (FIXO - LIMPO) ---
 const ICCAR_DEFAULT_MODEL: SavedModel = {
   id: 'iccar_padrao_fixo',
   name: 'POSTO ICCAR LTDA (Padrão)',
@@ -112,7 +112,7 @@ const ICCAR_DEFAULT_MODEL: SavedModel = {
   fuels: []
 };
 
-// --- MODELO NOVO GUIMARÃES (DA FOTO) ---
+// --- MODELO NOVO GUIMARÃES (LIMPO) ---
 const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   id: 'guimaraes_modelo_fixo',
   name: 'AUTO POSTO GUIMARAES LTDA',
@@ -120,7 +120,7 @@ const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   postoData: {
     razaoSocial: 'AUTO POSTO GUIMARAES LTDA',
     cnpj: '02.855.790/0001-12',
-    inscEstadual: '', // Não visível na foto
+    inscEstadual: '', 
     endereco: 'BR 010, SN - KM 1350 - MARANHÃO NOVO\nIMPERATRIZ - MA',
     activeLayoutId: 'modelo_guimaraes',
     chavePix: '',
@@ -132,30 +132,21 @@ const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   ],
   invoiceData: {
     ...BLANK_INVOICE,
-    numero: '467352',
-    serie: '1',
-    dataEmissao: '10/12/2025 22:32:33',
-    protocolo: '221250476045004',
-    chaveAcesso: '2125 1202 8557 9000 0112 6500 1000 4673 5211 0437 2459',
-    urlQrCode: 'http://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp',
+    // Dados Fiscais Iniciam VAZIOS para não aparecerem automaticamente
+    numero: '',
+    serie: '',
+    dataEmissao: '',
+    protocolo: '',
+    chaveAcesso: '',
+    urlQrCode: '',
     impostos: { federal: '9,5005', estadual: '20,1000', municipal: '0,00' },
-    placa: 'OIB4C39',
+    placa: '',
     km: '',
-    motorista: 'ACACIO',
-    operador: '741.779.0',
-    detalheCodigo: '#CF:B31 EI0550800.620 EF0550927.830 V127.206'
+    motorista: '',
+    operador: '',
+    detalheCodigo: ''
   },
-  fuels: [
-    { 
-       id: '1', 
-       code: '2', 
-       name: 'OLEO DIESEL B S10', 
-       quantity: '127,206', 
-       unit: 'L', 
-       unitPrice: '5,990', 
-       total: '761,96'
-    }
-  ]
+  fuels: []
 };
 
 type NotificationType = { message: string; type: 'success' | 'error' | 'info'; id: number; };
@@ -274,6 +265,54 @@ const App: React.FC = () => {
   const [fuels, setFuels] = useState<FuelItem[]>(() => getInitialData(selectedModelId, 'fuels', []));
   const [prices, setPrices] = useState<PriceItem[]>(() => getInitialData(selectedModelId, 'prices', []));
   const [taxRates, setTaxRates] = useState<TaxRates>(() => getInitialData(selectedModelId, 'taxRates', DEFAULT_TAX_RATES));
+
+  // --- SINCRONIZAÇÃO DE PREÇOS (NOVA LÓGICA) ---
+  // Quando os preços mudam, atualiza automaticamente os itens na lista de combustíveis
+  useEffect(() => {
+    setFuels(currentFuels => {
+      let hasChanges = false;
+      
+      const updatedFuels = currentFuels.map(fuel => {
+        // Ignora se não tiver vínculo com produto (productId)
+        if (!fuel.productId) return fuel;
+
+        const matchingPrice = prices.find(p => p.id === fuel.productId);
+        
+        // Se o produto não existe mais, mantém o item como está
+        if (!matchingPrice) return fuel;
+        
+        // Verifica se houve mudança em qualquer dado relevante (Preço, Nome, Código)
+        const isPriceChanged = fuel.unitPrice !== matchingPrice.price || fuel.unitPriceCard !== matchingPrice.priceCard;
+        const isDataChanged = fuel.name !== matchingPrice.name || fuel.code !== matchingPrice.code;
+
+        if (!isPriceChanged && !isDataChanged) return fuel;
+
+        hasChanges = true;
+
+        // Se o preço mudou, precisa recalcular o total
+        let newTotal = fuel.total;
+        
+        if (isPriceChanged) {
+           const qty = parseFloat(fuel.quantity.replace(/\./g, '').replace(',', '.')) || 0;
+           const price = parseFloat(matchingPrice.price.replace(/\./g, '').replace(',', '.')) || 0;
+           newTotal = (qty * price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        return {
+          ...fuel,
+          name: matchingPrice.name,
+          code: matchingPrice.code,
+          unit: matchingPrice.unit,
+          unitPrice: matchingPrice.price,
+          unitPriceCard: matchingPrice.priceCard,
+          total: newTotal
+        };
+      });
+
+      return hasChanges ? updatedFuels : currentFuels;
+    });
+  }, [prices]);
+
 
   // --- HELPERS E NOTIFICAÇÕES ---
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -588,23 +627,21 @@ const App: React.FC = () => {
     }
   };
 
-  // --- FUNÇÃO DE IMPRESSÃO MELHORADA (ABRE O DIÁLOGO DO SISTEMA) ---
+  // --- FUNÇÃO DE IMPRESSÃO OTIMIZADA ---
   const handlePrint = () => {
-    // Função interna para disparar o comando
-    const doPrint = () => {
-      // Pequeno delay para garantir renderização, mas curto o suficiente para ser responsivo
-      setTimeout(() => {
-          window.print();
-      }, 100);
+    const printAction = () => {
+        window.print();
     };
 
-    if (activeTab !== 'NOTA') {
-      showToast("Abrindo impressoras...", "info");
-      setActiveTab('NOTA');
-      // Aguarda a transição de aba (tempo reduzido para ser mais ágil)
-      setTimeout(doPrint, 500);
+    if (activeTab === 'NOTA') {
+        // Se já estiver na aba, chama direto (melhor chance de funcionar em mobile)
+        printAction();
     } else {
-      doPrint();
+        // Se precisar trocar, avisa e tenta agendar
+        setActiveTab('NOTA');
+        showToast("Preparando impressão...", "info");
+        // Delay mínimo para renderização (0ms pode funcionar em React moderno, mas 500ms é seguro para mobile fraco)
+        setTimeout(printAction, 500);
     }
   };
 
@@ -621,38 +658,71 @@ const App: React.FC = () => {
   };
 
   const handleGenerateInvoice = () => {
+    // --- VALIDAÇÃO DE SEGURANÇA ---
+    if (fuels.length === 0) {
+      showToast("A nota não pode ser gerada sem itens.", "error");
+      return;
+    }
+
+    const hasValidItems = fuels.some(f => {
+       const q = parseFloat(f.quantity.replace(/\./g, '').replace(',', '.')) || 0;
+       const p = parseFloat(f.unitPrice.replace(/\./g, '').replace(',', '.')) || 0;
+       return q > 0 && p > 0;
+    });
+
+    if (!hasValidItems) {
+       showToast("Adicione quantidades e valores aos itens.", "error");
+       return;
+    }
+    // ------------------------------
+
     const today = new Date();
     const pad = (n: number) => n.toString().padStart(2, '0');
-    const randomDigits = (n: number) => Array.from({length:n}, ()=>Math.floor(Math.random()*10)).join('');
+    
+    // 1. Data de Emissão Formatada
     const dateStr = `${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()} ${pad(today.getHours())}:${pad(today.getMinutes())}:${pad(today.getSeconds())}`;
     
-    // Gera código aleatório para o modelo Guimarães
-    const r = (n: number) => Math.floor(Math.random() * n);
-    const p1 = `B${r(9)}${r(9)}`; // ex: B31
-    const p2 = `EI0${r(9)}${r(9)}${r(9)}${r(9)}${r(9)}.${r(9)}${r(9)}${r(9)}`; // ex: EI0550800.620
-    const p3 = `EF0${r(9)}${r(9)}${r(9)}${r(9)}${r(9)}.${r(9)}${r(9)}${r(9)}`; // ex: EF0550927.830
-    const p4 = `V${r(9)}${r(9)}${r(9)}.${r(9)}${r(9)}${r(9)}`; // ex: V127.206
-    const randomDetailCode = `#CF:${p1} ${p2} ${p3} ${p4}`;
+    // 2. Número e Série (Mantém existente ou gera novo)
+    const numeroNota = (invoiceData.numero || Math.floor(10000 + Math.random() * 90000).toString()).padStart(9, '0');
+    const serieNota = (invoiceData.serie || '1').padStart(3, '0');
 
-    // Gera REQ (Operador) no formato 741.779.0
-    const reqPart1 = Math.floor(100 + Math.random() * 900); // 3 digitos
-    const reqPart2 = Math.floor(100 + Math.random() * 900); // 3 digitos
-    const reqPart3 = Math.floor(Math.random() * 10); // 1 digito
-    const generatedReq = `${reqPart1}.${reqPart2}.${reqPart3}`;
+    // 3. Geração da Chave de Acesso (Simulada para parecer real)
+    // Formato: UF(2) AAMM(4) CNPJ(14) MOD(2) SER(3) NNF(9) TP(1) COD(8) DV(1)
+    const uf = '21'; // MA
+    const aamm = `${today.getFullYear().toString().slice(-2)}${pad(today.getMonth() + 1)}`;
+    const cleanCnpj = postoData.cnpj.replace(/\D/g, '') || '00000000000000';
+    const mod = '65'; // NFC-e
+    const tpEmis = '1'; // Normal
+    const codigoAleatorio = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 dígitos
+    
+    const baseKey = `${uf}${aamm}${cleanCnpj}${mod}${serieNota}${numeroNota}${tpEmis}${codigoAleatorio}`;
+    // Dígito Verificador Simples (apenas 1 dígito aleatório para a simulação visual)
+    const dv = Math.floor(Math.random() * 10).toString();
+    const chaveAcessoGerada = `${baseKey}${dv}`;
+
+    // 4. Protocolo de Autorização
+    const protocoloGerado = `${Math.floor(100 + Math.random() * 900)}${Date.now().toString()}`.slice(0, 15);
+
+    // 5. Código de Detalhe (Estilo Guimarães - Bombas e Encerrantes)
+    // Ex: #CF:B01 EI000.000 EF000.000 V000.000
+    const totalVolume = fuels.reduce((acc, f) => acc + (parseFloat(f.quantity.replace(/\./g, '').replace(',', '.')) || 0), 0);
+    const formattedVolume = totalVolume.toFixed(3).replace('.', ',');
+    const ei = (Math.random() * 100000).toFixed(3).replace('.', '');
+    const ef = (parseFloat(ei) + totalVolume).toFixed(3).replace('.', '');
+    const detalheCodigoGerado = `#CF:B${Math.floor(1 + Math.random() * 10).toString().padStart(2, '0')} EI${ei} EF${ef} V${formattedVolume}`;
 
     setInvoiceData(prev => ({
       ...prev,
       dataEmissao: dateStr,
-      numero: prev.numero || Math.floor(10000 + Math.random() * 90000).toString(),
-      serie: prev.serie || "1",
-      protocolo: prev.protocolo || `321${today.getFullYear().toString().substr(2)}${randomDigits(10)}`,
-      chaveAcesso: prev.chaveAcesso || `${randomDigits(44)}`.replace(/(.{4})/g, '$1 ').trim(),
-      urlQrCode: prev.urlQrCode || 'http://www.nfce.sefaz.ma.gov.br',
-      detalheCodigo: randomDetailCode, // Insere o código gerado
-      operador: generatedReq // Insere o código REQ
+      numero: parseInt(numeroNota).toString(), // Remove zeros a esquerda para visualização
+      serie: parseInt(serieNota).toString(),
+      chaveAcesso: chaveAcessoGerada,
+      protocolo: protocoloGerado,
+      urlQrCode: `http://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp?p=${chaveAcessoGerada}|2|1|1|${dv}`,
+      detalheCodigo: detalheCodigoGerado
     }));
     
-    showToast("NFC-e Gerada com Sucesso!", "success");
+    showToast("NFC-e Gerada e Preenchida com Sucesso!", "success");
     setActiveTab('PAGAMENTO');
   };
 
