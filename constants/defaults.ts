@@ -99,7 +99,7 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
 // --- MODELO PADRÃO ICCAR (FIXO - LIMPO) ---
 export const ICCAR_DEFAULT_MODEL: SavedModel = {
   id: 'iccar_padrao_fixo',
-  name: 'POSTO ICCAR LTDA (Padrão)',
+  name: 'POSTO ICCAR LTDA',
   updatedAt: new Date().toISOString(),
   postoData: {
     razaoSocial: 'POSTO ICCAR LTDA',
@@ -114,7 +114,7 @@ export const ICCAR_DEFAULT_MODEL: SavedModel = {
   prices: [
     { id: '1', code: '1', name: 'GASOLINA COMUM', unit: 'L', price: '5,590', priceCard: '5,590' },
     { id: '2', code: '2', name: 'ETANOL COMUM', unit: 'L', price: '3,490', priceCard: '3,490' },
-    { id: '3', code: '3', name: 'DIESEL S10', unit: 'L', price: '5,890', priceCard: '5,890' },
+    { id: '3', code: '3', name: 'DIESEL S10', unit: 'L', price: '5,510', priceCard: '5,890' },
   ],
   invoiceData: { ...BLANK_INVOICE, impostos: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' } },
   fuels: []
@@ -177,19 +177,15 @@ export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
   ],
   invoiceData: {
     ...BLANK_INVOICE,
-    numero: '000165032',
-    serie: '001',
-    dataEmissao: '09/12/2025 08:29:52',
-    chaveAcesso: '2125 1210 2546 8800 0270 6500 1000 1650 3290 0259 2399',
+    numero: '',
+    serie: '',
+    dataEmissao: '',
+    chaveAcesso:"",
     protocolo: '', // Contingência geralmente não tem protocolo imediato
     urlQrCode: 'http://www.sefaz.ma.gov.br/nfce/consulta',
-    formaPagamento: 'DINHEIRO',
+    formaPagamento: '',
     impostos: { federal: '9,5000', estadual: '20,1000', municipal: '0,00' },
-    placa: 'OIB4E39',
-    km: '740406',
-    motorista: '',
-    operador: 'ADIEL',
-    detalheCodigo: ''
+  
   },
   fuels: [] // O usuário adicionará os itens
 };

@@ -542,7 +542,7 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight">NFC-e Pro</h1>
-            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v1.3.0 DB</span>
+            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v1.0</span>
           </div>
           <div className="flex items-center gap-3 text-blue-400">
             {installPrompt && <button onClick={handleInstallClick} className="bg-blue-600 text-white p-2 rounded-full animate-pulse shadow-lg ring-2 ring-blue-400"><Smartphone size={18} /></button>}
