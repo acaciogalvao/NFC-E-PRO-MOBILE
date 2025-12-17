@@ -6,13 +6,12 @@
 body {
   font-family: 'Inter', sans-serif;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation; /* Melhora resposta do toque */
-  user-select: none; /* Sensação de App Nativo */
+  touch-action: manipulation;
+  user-select: none;
   -webkit-user-select: none;
-  min-height: 100dvh; /* Dynamic Viewport Height para Mobile */
+  min-height: 100dvh;
 }
 
-/* Permite selecionar texto apenas em inputs e textareas */
 input, textarea {
   user-select: text;
   -webkit-user-select: text;
@@ -22,7 +21,6 @@ input, textarea {
   font-family: 'Roboto Mono', monospace;
 }
 
-/* Hide scrollbar for clean mobile look */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -31,60 +29,57 @@ input, textarea {
   scrollbar-width: none;
 }
 
-/* --- PRINT STYLES - CORREÇÃO DEFINITIVA DE CORTE --- */
+/* --- PRINT STYLES - SOLUÇÃO ROBUSTA (VISIBILITY) --- */
 @media print {
   @page {
     margin: 0;
     size: auto;
   }
-  
-  /* 1. Reset Global de Scroll e Tamanho */
-  html, body, #root, main {
-     height: auto !important;
-     min-height: 0 !important;
-     overflow: visible !important;
-     display: block !important;
-     position: static !important;
-     background-color: white !important; /* Fundo branco/transparente global */
-  }
 
-  /* 2. Ocultar Elementos de Interface Padrão */
-  header, nav, .fixed, .sticky, button, .print\:hidden {
-    display: none !important;
-  }
-  
-  /* 3. Reset do Container Principal */
-  main {
-    padding: 0 !important;
+  /* 1. RESET GLOBAL */
+  html, body {
+    background-color: white !important;
+    height: 100% !important;
+    width: 100% !important;
     margin: 0 !important;
-    border: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
 
-  /* 4. Configuração do Recibo para Fluir Corretamente */
+  /* 2. OCULTAR TUDO POR PADRÃO */
+  /* Usa visibility para manter a estrutura do React intacta, mas invisível */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 3. EXIBIR O CONTEÚDO DE IMPRESSÃO */
+  /* Torna visível o container e todos os seus filhos */
+  #printable-receipt, #printable-receipt * {
+    visibility: visible !important;
+  }
+
+  /* 4. POSICIONAMENTO ABSOLUTO */
+  /* Remove o elemento do fluxo da página e fixa no topo da folha */
   #printable-receipt {
-    display: block !important;
-    position: absolute !important; 
-    top: 0 !important;
+    position: absolute !important;
     left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    
+    /* Garante que cores e sombras sejam removidas para impressão limpa */
     box-shadow: none !important;
     background-color: transparent !important;
-    /* REMOVIDO: width: 100% !important; -> Isso esticava o cupom térmico */
-    /* Deixa o componente React definir o width (210mm ou 80mm) */
+    
+    /* Reseta transformações de zoom da tela */
+    transform: none !important;
+    zoom: 1 !important;
   }
-  
-  /* 5. Garante visibilidade, cor preta e remove fundos coloridos (ex: cinza do Guimarães) */
-  #printable-receipt * {
-    visibility: visible !important;
-    color: black !important;
-    background-color: transparent !important; /* REMOVE FUNDOS COLORIDOS */
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  
-  /* 6. Ocultar tudo que for irmão do root ou overlays */
-  body > *:not(#root) {
+
+  /* 5. REMOVER ELEMENTOS DE UI ESPECÍFICOS */
+  /* Garante que eles não ocupem espaço físico */
+  header, nav, button, .no-print, [role="dialog"], .fixed, .sticky {
     display: none !important;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bluetooth, Download, Printer, Save, Trash2, Loader2, Check, AlertCircle, Info, FilePlus, Edit3, FolderOpen, X, ChevronRight, Database, AlertTriangle, Type, Smartphone } from 'lucide-react';
+import { Bluetooth, Download, Printer, Save, Trash2, Loader2, Check, AlertCircle, Info, FilePlus, Edit3, FolderOpen, X, ChevronRight, Database, AlertTriangle, Type, Smartphone, Monitor } from 'lucide-react';
 import { TabId, PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates, BluetoothDevice, BluetoothRemoteGATTCharacteristic } from './types';
 import TabBar from './components/TabBar';
 import EditScreen from './screens/EditScreen';
@@ -792,40 +792,40 @@ const App: React.FC = () => {
     }
   };
 
-  // --- FUNÇÃO DE IMPRESSÃO OTIMIZADA COM BLUETOOTH ---
+  // --- FUNÇÃO DE IMPRESSÃO (CTRL+P / MOBILE PRINT) ---
   const handlePrint = async () => {
-    // 1. TENTA IMPRIMIR VIA BLUETOOTH (Se estiver na aba CUPOM e conectado)
+    // 1. TENTA IMPRIMIR VIA BLUETOOTH (Se conectado)
     if (activeTab === 'CUPOM' && printCharacteristic) {
         try {
-            showToast(`Enviando para ${btDeviceName}...`, "info");
+            showToast(`Enviando para ${btDeviceName} via Bluetooth...`, "info");
             const data = generateThermalReceiptBuffer();
-            // Escreve em chunks de 512 bytes para evitar overflow do buffer da impressora
             const chunkSize = 512;
             for (let i = 0; i < data.length; i += chunkSize) {
                 const chunk = data.slice(i, i + chunkSize);
                 await printCharacteristic.writeValue(chunk);
             }
             showToast("Impressão Bluetooth Enviada!", "success");
-            return; // Sucesso, não abre janela de impressão
+            return; 
         } catch (error) {
             console.error(error);
-            showToast("Erro Bluetooth. Usando Fallback.", "error");
-            // Continua para o fallback abaixo
+            showToast("Erro Bluetooth. Tentando impressão do sistema...", "error");
         }
     }
 
-    // 2. FALLBACK: WINDOW.PRINT (Nativo do Browser)
-    const printAction = () => {
-        window.print();
+    // 2. IMPRESSÃO DO SISTEMA (Navegador/Mobile)
+    const triggerSystemPrint = () => {
+       window.print();
     };
 
     if (activeTab === 'NOTA' || activeTab === 'CUPOM') {
-        printAction();
+        // Delay maior para dispositivos móveis garantirem a renderização
+        showToast("Abrindo impressão...", "info");
+        setTimeout(triggerSystemPrint, 500); 
     } else {
-        // Se não estiver na tela de visualização, vai para o Cupom e imprime
+        // Se não, muda a aba e espera mais tempo
         setActiveTab('CUPOM'); 
-        showToast("Preparando visualização...", "info");
-        setTimeout(printAction, 800);
+        showToast("Gerando visualização...", "info");
+        setTimeout(triggerSystemPrint, 800);
     }
   };
 

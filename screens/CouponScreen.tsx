@@ -630,8 +630,7 @@ const CouponScreen: React.FC<CouponScreenProps> = ({ postoData, setPostoData, in
       <div className="w-fit bg-white p-3 rounded-xl shadow-lg border border-slate-200 mb-4 flex justify-center print:bg-transparent print:p-0 print:border-none print:shadow-none print:w-full print:max-w-none print:block">
         <div 
           id="printable-receipt"
-          className="relative box-border transition-all print:shadow-none print:m-0 print:w-full print:absolute print:top-0 print:left-0"
-          style={{ width: 'fit-content' }} 
+          className="relative box-border transition-all"
         >
           {/* RENDERIZAÇÃO CONDICIONAL DO MODELO TÉRMICO */}
           {currentLayout.id === 'modelo_termico_real' || currentLayout.id === 'modelo_almeida' ? (

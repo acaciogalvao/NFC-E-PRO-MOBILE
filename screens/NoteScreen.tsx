@@ -415,7 +415,7 @@ const NoteScreen: React.FC<NoteScreenProps> = ({ postoData, invoiceData, fuels }
       <div className="w-full overflow-auto p-4 flex justify-center bg-slate-200/50 dark:bg-slate-900/50 print:bg-white print:p-0 print:block">
         <div 
           id="printable-receipt"
-          className="bg-white shadow-2xl print:shadow-none print:transform-none origin-top transition-transform print:w-full print:absolute print:top-0 print:left-0"
+          className="bg-white shadow-2xl print:shadow-none print:transform-none origin-top transition-transform"
           style={{ 
              transform: `scale(${zoomLevel})`,
              marginBottom: `-${(1 - zoomLevel) * 297}mm` // Compensa o espaço branco gerado pelo scale na tela, na impressão o transform é removido
