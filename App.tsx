@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Bluetooth, Download, Printer, Save, Trash2, Loader2, Check, AlertCircle, Info, FilePlus, Edit3, FolderOpen, X, ChevronRight, Database, AlertTriangle, Type, Smartphone } from 'lucide-react';
-import { TabId, PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates, BluetoothDevice } from './types';
+import { TabId, PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates, BluetoothDevice, BluetoothRemoteGATTCharacteristic } from './types';
 import TabBar from './components/TabBar';
 import EditScreen from './screens/EditScreen';
 import PricesScreen from './screens/PricesScreen';
 import NoteScreen from './screens/NoteScreen';
+import CouponScreen from './screens/CouponScreen';
 import PaymentScreen from './screens/PaymentScreen';
 import DataScreen from './screens/ApiScreen';
 import html2canvas from 'html2canvas';
@@ -56,6 +57,27 @@ const DEFAULT_LAYOUTS: LayoutConfig[] = [
       taxLabel: '',
       consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
       footerMessage: 'Consulte pela Chave de Acesso em\nhttp://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp'
+    }
+  },
+  {
+    id: 'modelo_almeida',
+    name: 'Modelo Posto Almeida (WebPosto)',
+    fontFamily: 'MONO',
+    fontSize: 'SMALL',
+    textAlign: 'CENTER',
+    showSidebars: false,
+    showBorders: false,
+    showHeader: true,
+    showConsumer: true,
+    showQrCode: true,
+    showFooter: true,
+    density: 'COMPACT',
+    customTexts: {
+      headerTitle: 'Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica',
+      subHeader: 'EMITIDA EM CONTINGENCIA\nPendente de autoriza',
+      taxLabel: 'ICMS monofasico sobre combustiveis cobrado anteriormente conform e Convenio ICMS 126/2024 e/ou 15/2023.',
+      consumerLabel: 'CONSUMIDOR N IDENTIFICADO',
+      footerMessage: 'EMITIDA EM CONTINGENCIA\nPendente de autoriza\n\nwebPostoPDV\nhttp://www.webposto.com.br/'
     }
   }
 ];
@@ -149,6 +171,44 @@ const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   fuels: []
 };
 
+// --- MODELO POSTO ALMEIDA 2 (BASEADO NA FOTO) ---
+const ALMEIDA_DEFAULT_MODEL: SavedModel = {
+  id: 'almeida_modelo_fixo',
+  name: 'POSTO ALMEIDA 2',
+  updatedAt: new Date().toISOString(),
+  postoData: {
+    razaoSocial: 'ANTONIO DE ALMEIDA CHAVES-ME',
+    cnpj: '10.254.688/0002-70',
+    inscEstadual: '122047940',
+    endereco: 'RODOVIA BR226, 0 TRIZIDELA\nBARRA DO CORDA-MA 65950-000\nFone:(99)8511-4995',
+    activeLayoutId: 'modelo_almeida',
+    chavePix: '',
+    tipoChavePix: 'CNPJ'
+  },
+  taxRates: { federal: '9,50', estadual: '20,10', municipal: '0,00' },
+  prices: [
+    { id: '1', code: '000002', name: 'DIESEL S10', unit: 'L', price: '5,730', priceCard: '5,730' }
+  ],
+  invoiceData: {
+    ...BLANK_INVOICE,
+    numero: '000165032',
+    serie: '001',
+    dataEmissao: '09/12/2025 08:29:52',
+    chaveAcesso: '2125 1210 2546 8800 0270 6500 1000 1650 3290 0259 2399',
+    protocolo: '', // Contingência geralmente não tem protocolo imediato
+    urlQrCode: 'http://www.sefaz.ma.gov.br/nfce/consulta',
+    formaPagamento: 'DINHEIRO',
+    impostos: { federal: '9,5000', estadual: '20,1000', municipal: '0,00' },
+    placa: 'OIB4E39',
+    km: '740406',
+    motorista: '',
+    operador: 'ADIEL',
+    detalheCodigo: ''
+  },
+  fuels: [] // O usuário adicionará os itens
+};
+
+
 type NotificationType = { message: string; type: 'success' | 'error' | 'info'; id: number; };
 
 // Tipos para os Modais de Ação
@@ -172,8 +232,8 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   
   // Estados Bluetooth
-  const [btStatus, setBtStatus] = useState<'DISCONNECTED' | 'SEARCHING' | 'CONNECTED'>('DISCONNECTED');
-  const [btDevice, setBtDevice] = useState<BluetoothDevice | null>(null);
+  const [printCharacteristic, setPrintCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
+  const [btDeviceName, setBtDeviceName] = useState<string | null>(null);
 
   // Estado PWA (Instalação)
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -205,11 +265,11 @@ const App: React.FC = () => {
         const parsed = JSON.parse(item);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      // Se não tiver nada salvo, inicia com o modelo ICCAR padrão e Guimarães
-      return [GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
+      // Padrão Inicial
+      return [ALMEIDA_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
     } catch (error) {
       console.error("Falha ao carregar banco de dados local:", error);
-      return [GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
+      return [ALMEIDA_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
     }
   });
 
@@ -238,7 +298,7 @@ const App: React.FC = () => {
   }, [customLayouts]);
 
   // --- ESTADO DO FORMULÁRIO (EDITOR) ---
-  // Inicializa o estado com o primeiro modelo salvo (que será o Guimarães por padrão se for a 1ª vez)
+  // Inicializa o estado com o primeiro modelo salvo (que será o Almeida por padrão se for a 1ª vez)
   const [selectedModelId, setSelectedModelId] = useState<string>(() => {
      return savedModels.length > 0 ? savedModels[0].id : '';
   });
@@ -574,9 +634,9 @@ const App: React.FC = () => {
   };
 
   const confirmReset = () => {
-    // Reseta para o padrão ICCAR + GUIMARAES
-    persistModels([GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL]);
-    handleLoadModel(GUIMARAES_DEFAULT_MODEL.id);
+    // Reseta para o padrão
+    persistModels([ALMEIDA_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL]);
+    handleLoadModel(ALMEIDA_DEFAULT_MODEL.id);
     showToast("Banco de dados resetado para padrões.", "success");
     setActionModal({ type: 'NONE' });
   };
@@ -589,27 +649,129 @@ const App: React.FC = () => {
       return;
     }
     try {
-        const device = await (navigator as any).bluetooth.requestDevice({ acceptAllDevices: true });
-        if(device) showToast("Dispositivo selecionado", "success");
-    } catch(e) { console.error(e); }
+        const device = await (navigator as any).bluetooth.requestDevice({ 
+          // Aceita todos para encontrar qualquer impressora termica,
+          // mas precisamos que o usuário selecione
+          acceptAllDevices: true,
+          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] // Serviço padrão de impressora térmica
+        });
+        
+        if (device) {
+          if (device.gatt) {
+            const server = await device.gatt.connect();
+            // Tenta obter o serviço de impressora
+            const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+            // Tenta obter a característica de escrita (Write)
+            const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+            
+            setPrintCharacteristic(characteristic);
+            setBtDeviceName(device.name || 'Impressora');
+            showToast(`Conectado a ${device.name || 'Impressora'}`, "success");
+          } else {
+            showToast("Dispositivo sem suporte GATT", "error");
+          }
+        }
+    } catch(e) { 
+      console.error(e);
+      showToast("Erro na conexão Bluetooth: " + (e as Error).message, "error"); 
+    }
+  };
+
+  // GERAÇÃO DE COMANDOS ESC/POS PARA CUPOM
+  const generateThermalReceiptBuffer = () => {
+    const encoder = new TextEncoder();
+    let commands: number[] = [];
+    
+    // Funções auxiliares
+    const add = (str: string) => {
+        // Converte caracteres acentuados simples ou remove
+        const normalized = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const bytes = encoder.encode(normalized);
+        bytes.forEach(b => commands.push(b));
+    };
+    const addCmd = (...bytes: number[]) => bytes.forEach(b => commands.push(b));
+    const addLine = () => add('--------------------------------\n');
+
+    // 1. Inicializa
+    addCmd(0x1B, 0x40); // Initialize
+    addCmd(0x1B, 0x61, 1); // Center Align
+
+    // 2. Cabeçalho
+    addCmd(0x1B, 0x45, 1); // Bold On
+    add((postoData.razaoSocial || 'POSTO').substring(0, 32) + '\n');
+    addCmd(0x1B, 0x45, 0); // Bold Off
+    add((postoData.endereco || '').substring(0, 32) + '\n');
+    add(`CNPJ: ${postoData.cnpj}\n`);
+    add('\n');
+    
+    add('DANFE NFC-e - Documento Auxiliar\n');
+    add('Nota Fiscal de Consumidor Eletronica\n');
+    addLine();
+
+    // 3. Itens
+    addCmd(0x1B, 0x61, 0); // Left Align
+    add('ITEM CODIGO DESCRICAO QTD UN VL.UNIT VL.TOTAL\n');
+    addLine();
+
+    let totalGeral = 0;
+    fuels.forEach((item, idx) => {
+       const total = parseFloat(item.total.replace(/\./g, '').replace(',', '.')) || 0;
+       totalGeral += total;
+       
+       const desc = item.name.substring(0, 20).toUpperCase();
+       add(`${(idx + 1).toString().padStart(3, '0')} ${item.code} ${desc}\n`);
+       add(`   ${item.quantity} ${item.unit} X ${item.unitPrice}   ${item.total}\n`);
+    });
+    addLine();
+
+    // 4. Totais
+    addCmd(0x1B, 0x61, 2); // Right Align
+    addCmd(0x1B, 0x45, 1); // Bold On
+    add(`QTD. TOTAL DE ITENS: ${fuels.length}\n`);
+    add(`VALOR TOTAL R$: ${totalGeral.toFixed(2).replace('.',',')}\n`);
+    addCmd(0x1B, 0x45, 0); // Bold Off
+    addCmd(0x1B, 0x61, 0); // Left Align
+    addLine();
+
+    // 5. Pagamento
+    add(`FORMA PAGAMENTO: ${invoiceData.formaPagamento}\n`);
+    add(`VALOR PAGO R$: ${totalGeral.toFixed(2).replace('.',',')}\n`);
+    addLine();
+
+    // 6. Rodapé
+    addCmd(0x1B, 0x61, 1); // Center Align
+    add('Consulte pela Chave de Acesso em:\n');
+    add('www.sefaz.ma.gov.br/nfce/consulta\n');
+    
+    // Chave quebrada
+    const chave = invoiceData.chaveAcesso.replace(/\s/g, '');
+    for(let i=0; i<chave.length; i+=4) {
+       add(chave.substring(i, i+4) + ' ');
+    }
+    add('\n\n');
+
+    add(`NFC-e n ${invoiceData.numero} Serie ${invoiceData.serie}\n`);
+    add(`${invoiceData.dataEmissao}\n`);
+    add('Protocolo de Autorizacao:\n');
+    add(`${invoiceData.protocolo}\n`);
+    
+    add('\n\n\n'); // Feed
+    addCmd(0x1D, 0x56, 66, 0); // Cut
+
+    return new Uint8Array(commands);
   };
 
   const handleDownloadPDF = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
-    if (activeTab !== 'NOTA') {
-      setActiveTab('NOTA');
-      setTimeout(() => generatePDF(), 800);
-    } else {
-      generatePDF();
-    }
+    generatePDF();
   };
 
   const generatePDF = async () => {
     const input = document.getElementById('printable-receipt');
     if (!input) {
       setIsProcessing(false);
-      showToast("Erro ao renderizar nota", "error");
+      showToast("Erro ao renderizar documento", "error");
       return;
     }
     try {
@@ -617,7 +779,10 @@ const App: React.FC = () => {
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, (canvas.height * 80) / canvas.width] });
       pdf.addImage(imgData, 'PNG', 0, 0, 80, (canvas.height * 80) / canvas.width);
-      pdf.save(`NFCe-${invoiceData.numero || 'Nota'}.pdf`);
+      
+      const fileName = activeTab === 'CUPOM' ? 'Cupom' : (activeTab === 'NOTA' ? 'NFCe-A4' : 'Doc');
+      
+      pdf.save(`${fileName}-${invoiceData.numero || 'Nota'}.pdf`);
       showToast("Download concluído!", "success");
     } catch (err) {
       console.error(err);
@@ -627,21 +792,40 @@ const App: React.FC = () => {
     }
   };
 
-  // --- FUNÇÃO DE IMPRESSÃO OTIMIZADA ---
-  const handlePrint = () => {
+  // --- FUNÇÃO DE IMPRESSÃO OTIMIZADA COM BLUETOOTH ---
+  const handlePrint = async () => {
+    // 1. TENTA IMPRIMIR VIA BLUETOOTH (Se estiver na aba CUPOM e conectado)
+    if (activeTab === 'CUPOM' && printCharacteristic) {
+        try {
+            showToast(`Enviando para ${btDeviceName}...`, "info");
+            const data = generateThermalReceiptBuffer();
+            // Escreve em chunks de 512 bytes para evitar overflow do buffer da impressora
+            const chunkSize = 512;
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const chunk = data.slice(i, i + chunkSize);
+                await printCharacteristic.writeValue(chunk);
+            }
+            showToast("Impressão Bluetooth Enviada!", "success");
+            return; // Sucesso, não abre janela de impressão
+        } catch (error) {
+            console.error(error);
+            showToast("Erro Bluetooth. Usando Fallback.", "error");
+            // Continua para o fallback abaixo
+        }
+    }
+
+    // 2. FALLBACK: WINDOW.PRINT (Nativo do Browser)
     const printAction = () => {
         window.print();
     };
 
-    if (activeTab === 'NOTA') {
-        // Se já estiver na aba, chama direto (melhor chance de funcionar em mobile)
+    if (activeTab === 'NOTA' || activeTab === 'CUPOM') {
         printAction();
     } else {
-        // Se precisar trocar, avisa e tenta agendar
-        setActiveTab('NOTA');
-        showToast("Preparando impressão...", "info");
-        // Delay mínimo para renderização (0ms pode funcionar em React moderno, mas 500ms é seguro para mobile fraco)
-        setTimeout(printAction, 500);
+        // Se não estiver na tela de visualização, vai para o Cupom e imprime
+        setActiveTab('CUPOM'); 
+        showToast("Preparando visualização...", "info");
+        setTimeout(printAction, 800);
     }
   };
 
@@ -747,12 +931,22 @@ const App: React.FC = () => {
           />
         );
       case 'NOTA':
+        // VISUALIZAÇÃO NFC-e (MODELO A4)
         return (
           <NoteScreen 
             postoData={postoData} setPostoData={setPostoData} 
             invoiceData={invoiceData} fuels={fuels}
-            layouts={customLayouts} onDeleteLayout={openDeleteLayoutModal}
           />
+        );
+      case 'CUPOM':
+        // VISUALIZAÇÃO CUPONS (TÉRMICOS)
+        return (
+           <CouponScreen 
+              postoData={postoData} setPostoData={setPostoData}
+              invoiceData={invoiceData} 
+              fuels={fuels}
+              layouts={customLayouts} onDeleteLayout={openDeleteLayoutModal}
+           />
         );
       case 'PAGAMENTO':
         return (
@@ -802,7 +996,7 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight">NFC-e Pro</h1>
-            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v1.0.0</span>
+            <span className="bg-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded text-white">v1.2.0</span>
           </div>
           <div className="flex items-center gap-3 text-blue-400">
             {installPrompt && (
@@ -814,11 +1008,17 @@ const App: React.FC = () => {
                 <Smartphone size={18} />
               </button>
             )}
-            <button onClick={handleBluetoothConnect} className="hover:bg-slate-800 p-2 rounded-full" title="Conectar Impressora Bluetooth (Experimental)"><Bluetooth size={18} /></button>
+            <button 
+                onClick={handleBluetoothConnect} 
+                className={`hover:bg-slate-800 p-2 rounded-full transition-colors ${printCharacteristic ? 'text-green-400 bg-green-900/20' : ''}`} 
+                title={printCharacteristic ? "Conectado. Clique para reconectar." : "Conectar Impressora Bluetooth"}
+            >
+                <Bluetooth size={18} />
+            </button>
             <button onClick={handleDownloadPDF} disabled={isProcessing} className="hover:bg-slate-800 p-2 rounded-full" title="Salvar como Imagem/PDF">
                {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
             </button>
-            <button onClick={handlePrint} className="hover:bg-slate-800 p-2 rounded-full" title="Imprimir (Abrir Impressoras)"><Printer size={18} /></button>
+            <button onClick={handlePrint} className="hover:bg-slate-800 p-2 rounded-full" title="Imprimir"><Printer size={18} /></button>
           </div>
         </div>
 

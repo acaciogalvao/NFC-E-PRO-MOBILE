@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FuelItem, InvoiceData, PostoData, PaymentMethod, PixKeyType } from '../types';
-import { Copy, QrCode, CreditCard, Banknote, AlertCircle, CheckCircle, Loader2, Wifi } from 'lucide-react';
+import { Copy, QrCode, CreditCard, Banknote, AlertCircle, CheckCircle, Loader2, Wifi, Wallet } from 'lucide-react';
 
 interface PaymentScreenProps {
   fuels: FuelItem[];
@@ -205,6 +205,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ fuels, postoData, invoice
   // Lógica de visibilidade do Total: 
   // Mostra SE não for Pix OU (se for Pix E tiver QR Code)
   const shouldShowTotal = invoiceData.formaPagamento !== 'PIX' || (invoiceData.formaPagamento === 'PIX' && qrCodeUrl);
+  const isCard = invoiceData.formaPagamento === 'CARTAO' || invoiceData.formaPagamento === 'CREDITO' || invoiceData.formaPagamento === 'DEBITO';
 
   return (
     <div className="space-y-6 text-center pb-6">
@@ -215,7 +216,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ fuels, postoData, invoice
              Valor Total a Pagar ({invoiceData.formaPagamento})
           </p>
           <h2 className="text-4xl font-extrabold text-slate-800 dark:text-white">R$ {formattedTotal}</h2>
-          {invoiceData.formaPagamento === 'CARTAO' && (
+          {isCard && (
             <span className="text-[10px] text-blue-500 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
               Preço Diferenciado Aplicado
             </span>
@@ -223,7 +224,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ fuels, postoData, invoice
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* Grid de Métodos de Pagamento */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* PIX */}
         <button 
           onClick={() => handleMethodChange('PIX')}
           className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${invoiceData.formaPagamento === 'PIX' ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
@@ -232,20 +235,31 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ fuels, postoData, invoice
           <span className="text-sm font-bold">Pix</span>
         </button>
         
-        <button 
-          onClick={() => handleMethodChange('CARTAO')}
-          className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${invoiceData.formaPagamento === 'CARTAO' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
-        >
-          <CreditCard size={24} className="mb-2" />
-          <span className="text-sm font-bold">Cartão</span>
-        </button>
-        
+        {/* DINHEIRO */}
         <button 
           onClick={() => handleMethodChange('DINHEIRO')}
           className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${invoiceData.formaPagamento === 'DINHEIRO' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
         >
           <Banknote size={24} className="mb-2" />
           <span className="text-sm font-bold">Dinheiro</span>
+        </button>
+
+        {/* CRÉDITO */}
+        <button 
+          onClick={() => handleMethodChange('CREDITO')}
+          className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${invoiceData.formaPagamento === 'CREDITO' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+        >
+          <CreditCard size={24} className="mb-2" />
+          <span className="text-sm font-bold">Crédito</span>
+        </button>
+
+        {/* DÉBITO */}
+        <button 
+          onClick={() => handleMethodChange('DEBITO')}
+          className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${invoiceData.formaPagamento === 'DEBITO' ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+        >
+          <Wallet size={24} className="mb-2" />
+          <span className="text-sm font-bold">Débito</span>
         </button>
       </div>
 
@@ -281,9 +295,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ fuels, postoData, invoice
              </div>
           ) : (
              <div className="w-48 h-48 bg-slate-100 dark:bg-slate-700 rounded-lg flex flex-col items-center justify-center text-slate-400">
-                <Banknote size={48} className="opacity-20 mb-2" />
+                {isCard ? <CreditCard size={48} className="opacity-20 mb-2" /> : <Banknote size={48} className="opacity-20 mb-2" />}
                 <span className="text-xs font-bold uppercase">Aguardando Pagamento</span>
-                <span className="text-[10px] uppercase">{invoiceData.formaPagamento}</span>
+                <span className="text-[10px] uppercase font-bold mt-1 text-slate-500 dark:text-slate-300 bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded">
+                  {invoiceData.formaPagamento}
+                </span>
              </div>
           )}
         </div>

@@ -62,14 +62,16 @@ input, textarea {
 
   /* 4. Configuração do Recibo para Fluir Corretamente */
   #printable-receipt {
-    width: 100% !important;
-    max-width: none !important;
     display: block !important;
-    position: static !important; /* Importante: Static permite quebra de página */
-    margin: 0 auto !important;
+    position: absolute !important; 
+    top: 0 !important;
+    left: 0 !important;
+    margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
-    background-color: transparent !important; /* Garante uso do papel */
+    background-color: transparent !important;
+    /* REMOVIDO: width: 100% !important; -> Isso esticava o cupom térmico */
+    /* Deixa o componente React definir o width (210mm ou 80mm) */
   }
   
   /* 5. Garante visibilidade, cor preta e remove fundos coloridos (ex: cinza do Guimarães) */

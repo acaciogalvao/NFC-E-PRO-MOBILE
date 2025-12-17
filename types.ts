@@ -1,5 +1,5 @@
 
-export type TabId = 'EDITAR' | 'PRECOS' | 'NOTA' | 'PAGAMENTO' | 'DADOS';
+export type TabId = 'EDITAR' | 'PRECOS' | 'NOTA' | 'CUPOM' | 'PAGAMENTO' | 'DADOS';
 
 export type PaymentMethod = 'DINHEIRO' | 'PIX' | 'CARTAO' | 'CREDITO' | 'DEBITO';
 
@@ -107,10 +107,19 @@ export interface SavedModel {
   };
 }
 
+export interface BluetoothRemoteGATTCharacteristic {
+  writeValue(value: BufferSource): Promise<void>;
+}
+
+export interface BluetoothRemoteGATTService {
+  getCharacteristic(characteristic: string): Promise<BluetoothRemoteGATTCharacteristic>;
+}
+
 export interface BluetoothRemoteGATTServer {
   connected: boolean;
   connect(): Promise<BluetoothRemoteGATTServer>;
   disconnect(): void;
+  getPrimaryService(service: string): Promise<BluetoothRemoteGATTService>;
 }
 
 export interface BluetoothDevice {
