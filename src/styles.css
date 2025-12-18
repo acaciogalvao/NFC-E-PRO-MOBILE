@@ -58,21 +58,16 @@ input, textarea {
     visibility: visible !important;
   }
 
-  /* 4. POSICIONAMENTO ABSOLUTO */
-  /* Remove o elemento do fluxo da página e fixa no topo da folha */
+  /* 4. POSICIONAMENTO */
   #printable-receipt {
-    position: absolute !important;
+    position: relative !important;
     left: 0 !important;
     top: 0 !important;
-    width: 100% !important;
+    width: auto !important; /* Alterado de 100% para auto */
     margin: 0 !important;
     padding: 0 !important;
-    
-    /* Garante que cores e sombras sejam removidas para impressão limpa */
     box-shadow: none !important;
     background-color: transparent !important;
-    
-    /* Reseta transformações de zoom da tela */
     transform: none !important;
     zoom: 1 !important;
   }
