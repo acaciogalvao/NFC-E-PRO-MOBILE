@@ -1,7 +1,7 @@
 import React from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { parseLocaleNumber, toCurrency, to3Decimals, generatePixPayload, generateNfceQrCodeUrl } from '../utils/formatters';
+import { parseLocaleNumber, toCurrency, to3Decimals, generatePixPayload, generateNfceQrCodeUrl } from '../utils/helpers';
 
 const DanfeReceipt: React.FC<{ data: any }> = ({ data }) => {
   const { posto, invoice, calculations } = data;
@@ -43,7 +43,6 @@ const DanfeReceipt: React.FC<{ data: any }> = ({ data }) => {
             </div>
         </div>
       </div>
-
       <div className="mb-4">
           <div className="bg-gray-100 border border-black border-b-0 px-2 py-1 text-[8px] font-bold uppercase">CÁLCULO DO IMPOSTO E TOTAIS</div>
           <div className={`grid grid-cols-10 ${borderClass}`}>
@@ -53,7 +52,6 @@ const DanfeReceipt: React.FC<{ data: any }> = ({ data }) => {
               </div>
           </div>
       </div>
-
       <div className="mb-4 flex-1">
          <div className="bg-gray-100 border border-black border-b-0 px-2 py-1 text-[8px] font-bold uppercase">DADOS DOS PRODUTOS / SERVIÇOS</div>
          <div className={`border border-black min-h-[500px] flex flex-col`}>
@@ -77,7 +75,6 @@ const DanfeReceipt: React.FC<{ data: any }> = ({ data }) => {
             ))}
          </div>
       </div>
-
       <div className="grid grid-cols-12 gap-4 mt-auto">
          <div className="col-span-8 border border-black p-4">
             <div className={labelClass}>INFORMAÇÕES COMPLEMENTARES</div>
@@ -98,12 +95,9 @@ const DanfeReceipt: React.FC<{ data: any }> = ({ data }) => {
 };
 
 const NoteScreen: React.FC = () => {
-  const { postoData, invoiceData, fuels, prices } = useAppContext();
+  const { postoData, invoiceData, fuels } = useAppContext();
   const [zoomLevel, setZoomLevel] = React.useState(0.5);
-
-  const isCard = ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
   
-  // No NoteScreen, usamos os valores já calculados e sincronizados do estado global
   const activeFuels = fuels.map(item => {
     const q = parseLocaleNumber(item.quantity);
     const t = parseLocaleNumber(item.total);
@@ -112,7 +106,6 @@ const NoteScreen: React.FC = () => {
   });
   
   const rawTotal = activeFuels.reduce((acc, item) => acc + item.t, 0);
-
   const pctFederal = parseLocaleNumber(invoiceData.impostos.federal);
   const pctEstadual = parseLocaleNumber(invoiceData.impostos.estadual);
   const valFederal = rawTotal * (pctFederal / 100);
@@ -123,7 +116,6 @@ const NoteScreen: React.FC = () => {
     : generateNfceQrCodeUrl(invoiceData.chaveAcesso, '1');
 
   const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
-  
   const fullData = { posto: postoData, invoice: invoiceData, calculations: { rawTotal, valFederal, valEstadual, activeFuels, qrCodeImageUrl } };
 
   return (

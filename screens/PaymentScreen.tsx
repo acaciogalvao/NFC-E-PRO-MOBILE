@@ -1,9 +1,8 @@
-
 import React, { useMemo, useState } from 'react';
 import { PaymentMethod } from '../types';
 import { CreditCard, Banknote, CheckCircle, Loader2, Wifi, QrCode as QrIcon, Copy, Check } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { parseLocaleNumber, generatePixPayload } from '../utils/formatters';
+import { parseLocaleNumber, generatePixPayload } from '../utils/helpers';
 
 const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
   const { fuels, invoiceData, setInvoiceData, postoData, showToast } = useAppContext();
@@ -68,7 +67,6 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
             </h2>
          </div>
       </div>
-
       <div className="grid grid-cols-2 gap-4">
         {methods.map(m => {
           const Icon = m.icon;
@@ -81,10 +79,9 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
           );
         })}
       </div>
-
       <div className="glass-card rounded-[2.5rem] p-8 flex flex-col items-center space-y-6 relative overflow-hidden min-h-[350px] justify-center">
         {paymentSuccess && (
-          <div className="absolute inset-0 btn-primary z-50 flex flex-col items-center justify-center text-white animate-reveal">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 z-50 flex flex-col items-center justify-center text-white animate-reveal">
             <CheckCircle size={80} className="mb-4 animate-float" />
             <h3 className="text-2xl font-black tracking-tight">PAGAMENTO OK!</h3>
           </div>
@@ -104,8 +101,7 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
            </>
         ) : <div className="flex flex-col items-center text-slate-600"><Banknote size={64} strokeWidth={1} className="mb-4 opacity-20" /><p className="text-xs font-bold uppercase tracking-widest">Aguardando {invoiceData.formaPagamento}</p></div>}
       </div>
-      
-      {!paymentSuccess && <button onClick={confirmAction} disabled={verifyingPayment} className="w-full btn-primary py-5 rounded-[2rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 tracking-[0.1em] disabled:opacity-50">{verifyingPayment ? <Loader2 className="animate-spin" /> : <><Wifi size={20} /> CONFIRMAR RECEBIMENTO</>}</button>}
+      {!paymentSuccess && <button onClick={confirmAction} disabled={verifyingPayment} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 py-5 rounded-[2rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 tracking-[0.1em] disabled:opacity-50 transition-transform active:scale-95">{verifyingPayment ? <Loader2 className="animate-spin" /> : <><Wifi size={20} /> CONFIRMAR RECEBIMENTO</>}</button>}
     </div>
   );
 };

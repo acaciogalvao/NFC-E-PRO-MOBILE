@@ -1,11 +1,7 @@
-
 import React, { useState } from 'react';
-import { LayoutConfig } from '../types';
 import { Trash2, Settings2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { parseLocaleNumber, toCurrency, to3Decimals, round2, generatePixPayload, generateNfceQrCodeUrl } from '../utils/formatters';
-
-// Importando Recibos Modulares
+import { parseLocaleNumber, toCurrency, to3Decimals, round2, generatePixPayload, generateNfceQrCodeUrl } from '../utils/helpers';
 import StandardReceipt from '../components/receipts/StandardReceipt';
 import GuimaraesReceipt from '../components/receipts/GuimaraesReceipt';
 import AlmeidaReceipt from '../components/receipts/AlmeidaReceipt';
@@ -45,26 +41,14 @@ const CouponScreen: React.FC = () => {
   const valMunicipal = round2(rawTotal * (pctMunicipal / 100));
   const valTotalTributos = valFederal + valEstadual + valMunicipal;
 
-  // Lógica de QR Code: Se for Pix, gera QR de pagamento, senão fiscal (SEFAZ-MA)
-  let qrCodeData = '';
-  if (isPix && postoData.chavePix) {
-    qrCodeData = generatePixPayload(
-      postoData.chavePix, 
-      postoData.razaoSocial, 
-      'IMPERATRIZ', 
-      rawTotal, 
-      postoData.tipoChavePix
-    );
-  } else {
-    qrCodeData = generateNfceQrCodeUrl(invoiceData.chaveAcesso, '1');
-  }
+  let qrCodeData = (isPix && postoData.chavePix) 
+    ? generatePixPayload(postoData.chavePix, postoData.razaoSocial, 'IMPERATRIZ', rawTotal, postoData.tipoChavePix)
+    : generateNfceQrCodeUrl(invoiceData.chaveAcesso, '1');
 
   const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
   const paymentMethodLabel = getPaymentLabel(invoiceData.formaPagamento);
-
   const calcData = { rawTotal, valTotalTributos, valFederal, valEstadual, valMunicipal, qrCodeImageUrl, paymentMethodLabel, activeFuels };
   const fullData = { posto: postoData, invoice: invoiceData, fuels, calculations: calcData };
-
   const currentLayout = customLayouts.find(l => l.id === postoData.activeLayoutId) || customLayouts[0];
   const filteredLayouts = customLayouts.filter(l => l.name.toUpperCase().includes(searchTerm.toUpperCase()));
 
@@ -90,7 +74,6 @@ const CouponScreen: React.FC = () => {
             </div>
          </div>
       </div>
-
       <div className="w-fit bg-white p-3 rounded-xl shadow-lg border border-slate-200 mb-4 flex justify-center print:bg-transparent print:p-0 print:border-none print:shadow-none print:w-full print:max-w-none print:block transition-all animate-fade-in">
         <div id="printable-receipt" className="relative box-border transition-all">
              {currentLayout.id === 'modelo_guimaraes' && <GuimaraesReceipt data={fullData} layout={currentLayout} width={paperWidth} />}

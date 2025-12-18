@@ -1,9 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates } from '../types';
-import { db } from '../services/StorageService';
-import { BLANK_INVOICE, BLANK_POSTO } from '../constants/defaults';
-import { parseLocaleNumber, toCurrency, quantityToFloat, to3Decimals } from '../utils/formatters';
+import { db } from '../services/storage';
+import { BLANK_INVOICE, BLANK_POSTO } from '../utils/constants';
+import { parseLocaleNumber, toCurrency, quantityToFloat } from '../utils/helpers';
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,00', estadual: '0,00', municipal: '0,00' };
 
@@ -54,7 +53,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isInitialLoad = useRef(true);
 
-  // 1. Carregamento Inicial
   useEffect(() => {
     const models = db.getAllModels();
     const layouts = db.getAllLayouts();
@@ -71,58 +69,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTimeout(() => { isInitialLoad.current = false; }, 500);
   }, []);
 
-  // 2. SINCRONIZAÇÃO GLOBAL DE PREÇOS (CARD vs CASH)
   useEffect(() => {
     if (isInitialLoad.current || fuels.length === 0) return;
-
     const isCard = ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
     
     setFuels(prevFuels => prevFuels.map(item => {
       const product = prices.find(p => p.id === item.productId || p.code === item.code);
       if (!product) return item;
-
       const activePriceStr = isCard && product.priceCard && parseLocaleNumber(product.priceCard) > 0 
         ? product.priceCard 
         : product.price;
-      
       const unitPrice = parseLocaleNumber(activePriceStr);
       const qty = quantityToFloat(item.quantity);
       const newTotal = toCurrency(qty * unitPrice);
-
-      if (item.total === newTotal) return item; // Evita loop infinito se não houver mudança
-
-      return {
-        ...item,
-        unitPrice: product.price,
-        unitPriceCard: product.priceCard,
-        total: newTotal
-      };
+      if (item.total === newTotal) return item;
+      return { ...item, unitPrice: product.price, unitPriceCard: product.priceCard, total: newTotal };
     }));
   }, [invoiceData.formaPagamento, prices]);
 
-  // 3. AUTO-SAVE
   useEffect(() => {
     if (isInitialLoad.current || !selectedModelId) return;
-
     const autoSaveTimer = setTimeout(() => {
       const currentModel = savedModels.find(m => m.id === selectedModelId);
       if (!currentModel) return;
-
       const modelToUpdate: SavedModel = {
-        ...currentModel,
-        postoData,
-        prices,
-        taxRates,
-        invoiceData,
-        fuels,
+        ...currentModel, postoData, prices, taxRates, invoiceData, fuels,
         updatedAt: new Date().toISOString()
       };
-
       const updatedList = db.saveOrUpdateModel(modelToUpdate);
       setSavedModels(updatedList);
       db.saveLastActiveId(selectedModelId);
     }, 1000);
-
     return () => clearTimeout(autoSaveTimer);
   }, [postoData, prices, taxRates, invoiceData, fuels, selectedModelId]);
 
@@ -134,19 +111,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const handleUpdateTaxRates = (newRates: TaxRates) => {
     setTaxRates(newRates);
-    setInvoiceData(prev => ({
-      ...prev,
-      impostos: { ...prev.impostos, ...newRates }
-    }));
+    setInvoiceData(prev => ({ ...prev, impostos: { ...prev.impostos, ...newRates } }));
   };
 
   const handleLoadModel = (id: string) => {
     const model = db.getModelById(id);
     if (!model) return;
-
     const prevInitial = isInitialLoad.current;
     isInitialLoad.current = true;
-
     setPostoData({ ...BLANK_POSTO, ...model.postoData });
     setPrices(model.prices || []);
     setTaxRates({ ...DEFAULT_TAX_RATES, ...(model.taxRates || {}) });
@@ -154,7 +126,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setInvoiceData({ ...BLANK_INVOICE, ...model.invoiceData });
     setSelectedModelId(id);
     db.saveLastActiveId(id);
-
     setTimeout(() => { isInitialLoad.current = prevInitial; }, 50);
   };
 
@@ -162,17 +133,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsSaving(true);
     try {
       const currentId = selectedModelId || Date.now().toString();
-      const name = selectedModelId 
-        ? (savedModels.find(m => m.id === currentId)?.name || 'Modelo') 
-        : `Modelo ${new Date().toLocaleTimeString()}`;
-
-      const modelToSave: SavedModel = {
-        id: currentId,
-        name,
-        updatedAt: new Date().toISOString(),
-        postoData, prices, taxRates, invoiceData, fuels
-      };
-
+      const name = selectedModelId ? (savedModels.find(m => m.id === currentId)?.name || 'Modelo') : `Modelo ${new Date().toLocaleTimeString()}`;
+      const modelToSave: SavedModel = { id: currentId, name, updatedAt: new Date().toISOString(), postoData, prices, taxRates, invoiceData, fuels };
       const updatedList = db.saveOrUpdateModel(modelToSave);
       setSavedModels(updatedList);
       setSelectedModelId(currentId);
