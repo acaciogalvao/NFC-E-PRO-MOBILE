@@ -39,7 +39,7 @@ input, textarea {
   /* 1. RESET GLOBAL */
   html, body {
     background-color: white !important;
-    height: 100% !important;
+    height: auto !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -58,16 +58,22 @@ input, textarea {
     visibility: visible !important;
   }
 
-  /* 4. POSICIONAMENTO */
+  /* 4. POSICIONAMENTO RELATIVO */
+  /* Permite que o conteúdo flua normalmente e respeite as larguras em mm */
   #printable-receipt {
     position: relative !important;
     left: 0 !important;
     top: 0 !important;
-    width: auto !important; /* Alterado de 100% para auto */
-    margin: 0 !important;
+    width: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
     padding: 0 !important;
+    
+    /* Garante que cores e sombras sejam removidas para impressão limpa */
     box-shadow: none !important;
     background-color: transparent !important;
+    
+    /* Reseta transformações de zoom da tela */
     transform: none !important;
     zoom: 1 !important;
   }

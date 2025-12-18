@@ -1,6 +1,6 @@
 import React from 'react';
 import { LayoutConfig } from '../../types';
-import { toCurrency, to3Decimals, NFCE_PORTAL_URL } from '../../utils/formatters';
+import { toCurrency, to3Decimals, NFCE_PORTAL_URL, parseLocaleNumber } from '../../utils/formatters';
 
 interface ReceiptProps {
   data: any;
@@ -10,11 +10,13 @@ interface ReceiptProps {
 
 const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
   const { posto, invoice, calculations } = data;
-  const { rawTotal, valTotalTributos, valFederal, valEstadual, activeFuels, qrCodeImageUrl } = calculations;
+  const { rawTotal, valTotalTributos, valFederal, valEstadual, activeFuels, qrCodeImageUrl, paymentMethodLabel } = calculations;
 
-  const fontSize = width === '58mm' ? 'text-[8px]' : 'text-[10px]';
-  const smallText = width === '58mm' ? 'text-[7px]' : 'text-[9px]';
-  const safePadding = "px-3"; 
+  // Configurações de fonte baseadas na largura do papel
+  const fontSize = width === '58mm' ? 'text-[7px]' : 'text-[9px]';
+  const headerFontSize = width === '58mm' ? 'text-[10px]' : 'text-[12px]';
+  const tableFontSize = width === '58mm' ? 'text-[6px]' : 'text-[8.5px]';
+  const safePadding = "px-3";
 
   const cleanKey = (invoice.chaveAcesso || '').replace(/\D/g, '');
   const formattedKey = cleanKey.length === 44 
@@ -24,29 +26,28 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
   const addressLines = (posto.endereco || '').split('\n');
   const [datePart, timePart] = (invoice.dataEmissao || '').split(' ');
 
-  // Definição rigorosa de larguras para alinhamento vertical perfeito entre header e itens
+  // Definição de colunas para o estilo "tabela densa" da imagem
   const colWidths = {
-    it: 'w-[10%]',
-    cod: 'w-[15%]',
-    desc: 'w-[45%]',
-    total: 'w-[30%]'
+    it: 'w-[5%]',
+    cod: 'w-[10%]',
+    desc: 'w-[35%]',
+    qty: 'w-[15%]',
+    un: 'w-[5%]',
+    unit: 'w-[15%]',
+    total: 'w-[15%]'
   };
 
   return (
     <div 
       style={{ maxWidth: width, minWidth: width }} 
-      className="bg-white text-black font-sans leading-tight text-center flex flex-col border border-black overflow-hidden"
+      className="bg-white text-black font-sans leading-tight text-center flex flex-col border border-black overflow-hidden py-1"
     >
-      {/* TÍTULO NFC-E */}
-      <div className={`py-3 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
-        <div className="font-black text-[22px] uppercase tracking-tighter leading-none">NFC-E</div>
-      </div>
-
-      {/* DADOS DO ESTABELECIMENTO */}
-      <div className={`py-3 border-b border-black flex flex-col items-center justify-center space-y-1 uppercase ${safePadding}`}>
-        <div className="font-black text-[11px] leading-tight">{posto.razaoSocial}</div>
-        <div className={`${fontSize} font-bold`}>
-          CNPJ: {posto.cnpj} &nbsp;&nbsp; IE: {posto.inscEstadual}
+      {/* SEÇÃO 1: CABEÇALHO PRINCIPAL */}
+      <div className={`py-1 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
+        <div className="font-black text-[20px] uppercase tracking-tighter leading-none mb-1">NFC-e</div>
+        <div className={`font-black ${headerFontSize} uppercase leading-tight`}>{posto.razaoSocial}</div>
+        <div className={`${fontSize} font-bold mt-0.5`}>
+          CNPJ: {posto.cnpj} &nbsp;&nbsp; Insc. Estadual: {posto.inscEstadual || 'ISENTO'}
         </div>
         <div className={`${fontSize} font-bold leading-tight`}>
           {addressLines.map((line: string, i: number) => (
@@ -55,118 +56,129 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
         </div>
       </div>
 
-      {/* TÍTULO DO DOCUMENTO */}
-      <div className={`py-2 border-b border-black flex flex-col items-center justify-center space-y-1 ${safePadding}`}>
-        <div className="font-black text-[9px] tracking-tight leading-tight uppercase">
-          {layout.customTexts.headerTitle}
+      {/* SEÇÃO 2: TÍTULO DO DOCUMENTO */}
+      <div className={`py-1.5 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
+        <div className="font-black text-[9px] uppercase leading-tight">
+          DANFE NFC-e - Documento Auxiliar de Nota Fiscal<br/>de Consumidor Eletrônica
         </div>
-        {layout.customTexts.subHeader && (
-          <div className="text-[8px] italic font-bold leading-tight">
-            {layout.customTexts.subHeader}
-          </div>
-        )}
+        <div className="text-[7px] font-bold mt-1 leading-tight">
+          NFC-e não permite aproveitamento de crédito de ICMS
+        </div>
       </div>
 
-      {/* CABEÇALHO DOS ITENS - CENTRALIZADO ENTRE AS LINHAS */}
-      <div className={`border-b border-black h-9 flex items-center justify-center bg-gray-50/5 ${safePadding}`}>
-        <div className={`flex w-full font-black ${smallText} leading-none text-center`}>
-          <span className={`${colWidths.it}`}>IT</span>
-          <span className={`${colWidths.cod}`}>CÓD</span>
-          <span className={`${colWidths.desc}`}>DESCRIÇÃO</span>
-          <span className={`${colWidths.total}`}>TOTAL(R$)</span>
+      {/* SEÇÃO 3: CABEÇALHO DA TABELA */}
+      <div className={`border-b border-black h-7 flex items-center justify-center ${safePadding}`}>
+        <div className={`flex w-full font-black ${tableFontSize} leading-none text-left`}>
+          <span className={colWidths.it}>It.</span>
+          <span className={colWidths.cod}>Cód.</span>
+          <span className={colWidths.desc}>Descrição</span>
+          <span className={`${colWidths.qty} text-right`}>Qtde</span>
+          <span className={`${colWidths.un} text-center`}>Un</span>
+          <span className={`${colWidths.unit} text-right`}>Vl.Unit</span>
+          <span className={`${colWidths.total} text-right`}>Vl.Total</span>
         </div>
       </div>
         
-      {/* LISTA DE ITENS */}
-      <div className={`border-b border-black py-1 ${safePadding}`}>
+      {/* SEÇÃO 4: LISTA DE PRODUTOS */}
+      <div className={`border-b border-black py-0.5 ${safePadding}`}>
         {activeFuels.map((item: any, idx: number) => (
-          <div key={idx} className={`flex flex-col items-center py-2 border-b border-black/5 last:border-0`}>
-            {/* Linha Principal do Item - Usando as mesmas larguras do Header */}
-            <div className={`flex w-full items-center ${smallText} font-black uppercase text-center`}>
-              <span className={`${colWidths.it}`}>{(idx + 1).toString().padStart(2, '0')}</span>
-              <span className={`${colWidths.cod}`}>{item.code}</span>
-              <span className={`${colWidths.desc} px-1`}>{item.name}</span>
-              <span className={`${colWidths.total}`}>{toCurrency(item.t)}</span>
-            </div>
-            {/* Detalhes do Item (Segunda linha centralizada) */}
-            <div className={`${smallText} font-bold opacity-70 mt-1`}>
-              {to3Decimals(item.q)} {item.unit} X {to3Decimals(item.p)}
-            </div>
+          <div key={idx} className={`flex w-full items-start py-1 ${tableFontSize} font-bold text-left leading-tight`}>
+            <span className={colWidths.it}>{idx + 1}</span>
+            <span className={colWidths.cod}>{item.code}</span>
+            <span className={`${colWidths.desc} pr-1 break-words`}>{item.name}</span>
+            <span className={`${colWidths.qty} text-right`}>{to3Decimals(item.q)}</span>
+            <span className={`${colWidths.un} text-center`}>{item.unit}</span>
+            <span className={`${colWidths.unit} text-right`}>{to3Decimals(item.p)}</span>
+            <span className={`${colWidths.total} text-right`}>{toCurrency(item.t)}</span>
           </div>
         ))}
       </div>
 
-      {/* TOTAIS E PAGAMENTO */}
-      <div className={`py-3 border-b border-black space-y-1.5 ${safePadding}`}>
+      {/* SEÇÃO 5: TOTAIS E PAGAMENTO */}
+      <div className={`py-2 border-b border-black space-y-0.5 ${safePadding} text-left`}>
         <div className={`flex justify-between ${fontSize} font-bold`}>
           <span>Qtd. Total de Itens</span>
           <span>{activeFuels.length}</span>
         </div>
-        <div className={`flex justify-between ${fontSize} font-black border-t border-black/10 pt-1.5`}>
-          <span>Valor a Pagar R$</span>
-          <span className="text-[14px]">{toCurrency(rawTotal)}</span>
+        <div className={`flex justify-between ${fontSize} font-bold`}>
+          <span>Valor Total R$</span>
+          <span>{toCurrency(rawTotal)}</span>
         </div>
-        <div className={`flex justify-between ${smallText} font-bold opacity-70`}>
-          <span>Valor Total Tributos (Lei 12.741)</span>
-          <span>R$ {toCurrency(valTotalTributos)}</span>
+        <div className={`flex justify-between ${fontSize} font-bold`}>
+          <span>Valor Desconto R$</span>
+          <span>0,00</span>
+        </div>
+        <div className={`flex justify-between ${fontSize} font-black pt-0.5 border-t border-black/5`}>
+          <span>Valor a Pagar R$</span>
+          <span>{toCurrency(rawTotal)}</span>
+        </div>
+        <div className={`flex justify-between ${fontSize} font-black`}>
+          <span className="uppercase">{paymentMethodLabel}</span>
+          <span>{toCurrency(rawTotal)}</span>
+        </div>
+        <div className={`flex justify-between ${fontSize} font-bold pt-1 opacity-80`}>
+          <span className="text-[7.5px]">Valor Total Tributos (Lei 12.741/2012)</span>
+          <span className="text-[7.5px]">{toCurrency(valTotalTributos)}</span>
         </div>
       </div>
 
-      {/* TIPO DE EMISSÃO */}
-      <div className="py-2 border-b border-black font-black text-[11px] uppercase flex items-center justify-center">
+      {/* SEÇÃO 6: INFORMAÇÕES ADICIONAIS */}
+      <div className={`py-2 border-b border-black space-y-1 ${safePadding}`}>
+        <div className="font-black text-[8.5px] uppercase tracking-tight">
+          INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE
+        </div>
+        <div className={`${fontSize} font-bold uppercase`}>
+          Placa: {invoice.placa || '---'} KM: {invoice.km || '---'}
+        </div>
+        <div className={`${fontSize} font-bold leading-tight opacity-90`}>
+          Total Impostos Federais: R$ {toCurrency(valFederal)} <br/>
+          Total Impostos Estaduais: R$ {toCurrency(valEstadual)} <br/>
+          Total Impostos Municipais: R$ 0,00 (aprox. 0%)
+        </div>
+      </div>
+
+      {/* SEÇÃO 7: STATUS DE EMISSÃO */}
+      <div className="py-1.5 border-b border-black font-black text-[10px] uppercase flex items-center justify-center">
         EMISSÃO NORMAL
       </div>
 
-      {/* INFORMAÇÕES ADICIONAIS */}
-      <div className={`py-3 border-b border-black flex flex-col items-center justify-center space-y-1 ${safePadding}`}>
-        <div className="font-black text-[9px] uppercase tracking-tighter">
-          {layout.customTexts.taxLabel}
-        </div>
-        <div className={`${fontSize} font-bold`}>
-          PLACA: {invoice.placa || '---'} &nbsp; KM: {invoice.km || '---'}
-        </div>
-        <div className={`${smallText} font-bold opacity-90`}>
-          Federais: R$ {toCurrency(valFederal)} | Estaduais: R$ {toCurrency(valEstadual)}
-        </div>
-      </div>
-
-      {/* DADOS FISCAIS DE EMISSÃO */}
-      <div className={`py-4 border-b border-black flex flex-col items-center justify-center space-y-2 ${safePadding}`}>
+      {/* SEÇÃO 8: DADOS FISCAIS */}
+      <div className={`py-3 border-b border-black flex flex-col items-center justify-center space-y-2 ${safePadding}`}>
         <div className="font-black text-[9px] uppercase leading-tight">
-          N.º {invoice.numero || '---'} SÉRIE {invoice.serie || '001'} <br/> EMISSÃO {invoice.dataEmissao}
+          N.º: {invoice.numero || '---'} &nbsp; Série: {invoice.serie || '001'} &nbsp; Emissão: {invoice.dataEmissao}
         </div>
-        <div className="font-black text-[11px] uppercase tracking-widest border-y border-black/5 py-1 w-full">
-          VIA CONSUMIDOR
+        <div className="font-black text-[11px] uppercase tracking-widest bg-black/5 py-1 w-full">
+          Via Consumidor
         </div>
-        <div className="pt-2">
-          <div className={`${smallText} font-bold`}>Consulte pela Chave de Acesso em:</div>
+        <div className="pt-1">
+          <div className={`${fontSize} font-bold`}>Consulte pela Chave de Acesso em:</div>
           <div className="lowercase font-bold text-[8.5px] break-all leading-tight mt-1">{NFCE_PORTAL_URL}</div>
         </div>
-        <div className="pt-2 w-full">
+        <div className="pt-1 w-full">
            <div className="font-black text-[8px] uppercase mb-1">CHAVE DE ACESSO</div>
-           <div className="text-[8px] tracking-tighter font-black break-all leading-tight">
+           <div className="text-[8.5px] tracking-tighter font-black break-all leading-tight px-2">
              {formattedKey}
            </div>
         </div>
       </div>
 
-      {/* IDENTIFICAÇÃO DO CONSUMIDOR */}
+      {/* SEÇÃO 9: CONSUMIDOR */}
       <div className="py-2 border-b border-black font-black text-[10px] uppercase flex items-center justify-center">
-        {layout.customTexts.consumerLabel}
+        CONSUMIDOR NÃO IDENTIFICADO
       </div>
 
-      {/* QR CODE */}
-      <div className={`py-6 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
-        <div className="text-[9px] font-black uppercase mb-4 tracking-tight">CONSULTA VIA LEITOR DE QR CODE</div>
+      {/* SEÇÃO 10: QR CODE */}
+      <div className={`py-5 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
+        <div className="text-[9px] font-black uppercase mb-3 tracking-tight">Consulta via leitor de QR Code</div>
         <div className="bg-white p-1">
-          {qrCodeImageUrl && <img src={qrCodeImageUrl} alt="QR Code" className="w-40 h-40" />}
+          {qrCodeImageUrl && <img src={qrCodeImageUrl} alt="QR Code" className="w-48 h-48" />}
         </div>
       </div>
 
-      {/* PROTOCOLO FINAL */}
-      <div className={`py-4 flex flex-col items-center justify-center text-[9px] font-black leading-tight uppercase ${safePadding}`}>
-        <div>PROTOCOLO AUTORIZAÇÃO: {invoice.protocolo || '---'}</div>
-        <div className="mt-1">{datePart} &nbsp; {timePart}</div>
+      {/* SEÇÃO 11: PROTOCOLO FINAL */}
+      <div className={`py-3 flex flex-col items-center justify-center text-[9px] font-black leading-tight uppercase ${safePadding}`}>
+        <div>Protocolo Autorização: {invoice.protocolo || '---'}</div>
+        <div className="mt-1">{invoice.dataEmissao}</div>
       </div>
     </div>
   );
