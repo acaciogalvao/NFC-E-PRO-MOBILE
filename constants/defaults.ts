@@ -1,4 +1,3 @@
-
 import { SavedModel, PostoData, InvoiceData, LayoutConfig } from '../types';
 
 // --- CONSTANTES ---
@@ -47,10 +46,10 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showFooter: true,
     density: 'COMPACT',
     customTexts: {
-      headerTitle: 'DANFE NFC-e - Documento Auxiliar de Nota Fiscal\nde Consumidor Eletrônica',
+      headerTitle: 'DANFE NFC-e - Documento Auxiliar da Nota Fiscal\nde Consumidor Eletrônica',
       subHeader: 'NFC-e não permite aproveitamento de crédito de ICMS',
-      taxLabel: 'INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE',
-      consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
+      taxLabel: 'Informações Adicionais de Interesse do Contribuinte',
+      consumerLabel: 'Consumidor não identificado',
       footerMessage: 'Consulte pela Chave de Acesso em:'
     }
   },
@@ -68,7 +67,7 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showFooter: true,
     density: 'COMPACT',
     customTexts: {
-      headerTitle: 'Documento Auxiliar\nda Nota Fiscal de Consumidor Eletrônica',
+      headerTitle: 'Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica',
       subHeader: '',
       taxLabel: '',
       consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
@@ -90,15 +89,14 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     density: 'COMPACT',
     customTexts: {
       headerTitle: 'Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica',
-      subHeader: 'EMITIDA EM CONTINGENCIA\nPendente de autoriza',
-      taxLabel: 'ICMS monofasico sobre combustiveis cobrado anteriormente conform e Convenio ICMS 126/2024 e/ou 15/2023.',
-      consumerLabel: 'CONSUMIDOR N IDENTIFICADO',
-      footerMessage: 'EMITIDA EM CONTINGENCIA\nPendente de autoriza\n\nwebPostoPDV\nhttp://www.webposto.com.br/'
+      subHeader: '',
+      taxLabel: 'ICMS monofásico sobre combustíveis cobrado anteriormente conforme Convênio ICMS 126/2024.',
+      consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
+      footerMessage: 'webPostoPDV'
     }
   }
 ];
 
-// --- MODELO PADRÃO ICCAR (REALISTA DA FOTO) ---
 export const ICCAR_DEFAULT_MODEL: SavedModel = {
   id: 'iccar_padrao_fixo',
   name: 'POSTO ICCAR LTDA',
@@ -108,30 +106,26 @@ export const ICCAR_DEFAULT_MODEL: SavedModel = {
     cnpj: '02.280.133/0047-77',
     inscEstadual: '124846041',
     endereco: 'ROD BR 010, 25\nJARDIM TROPICAL, IMPERATRIZ - MA',
-    fone: '(99) 3524-1111',
+    fone: '(99) 3524-1111', 
     activeLayoutId: 'padrao_iccar',
     chavePix: '02.280.133/0047-77',
     tipoChavePix: 'CNPJ'
   },
-  taxRates: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' },
+  taxRates: { federal: '5,82', estadual: '20,32', municipal: '0,00' },
   prices: [
     { id: '1', code: '1', name: 'BS10 DIESEL BS10', unit: 'L', price: '5,510', priceCard: '5,510' },
     { id: '2', code: '2', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,890', priceCard: '5,890' },
   ],
   invoiceData: { 
     ...BLANK_INVOICE, 
-    placa: 'OIB4C39',
-    km: '740076',
-    operador: 'SISTEMA',
-    numero: '59784',
-    serie: '1',
-    urlQrCode: 'http://www.nfce.sefaz.ma.gov.br/portal/consultanFe.do?method=preFilterCupom',
-    impostos: { federal: '5,8258', estadual: '20,3272', municipal: '0,00' } 
+    numero: '000045123',
+    serie: '001',
+    dataEmissao: new Date().toLocaleString('pt-BR'),
+    impostos: { federal: '5,82', estadual: '20,32', municipal: '0,00' } 
   },
   fuels: []
 };
 
-// ... (Outros modelos permanecem iguais)
 export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   id: 'guimaraes_modelo_fixo',
   name: 'AUTO POSTO GUIMARAES LTDA',
@@ -139,9 +133,9 @@ export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   postoData: {
     razaoSocial: 'AUTO POSTO GUIMARAES LTDA',
     cnpj: '02.855.790/0001-12',
-    inscEstadual: '', 
+    inscEstadual: '121000000', 
     endereco: 'BR 010, SN - KM 1350 - MARANHÃO NOVO\nIMPERATRIZ - MA',
-    fone: '(99) 3525-2222',
+    fone: '(99) 99111-2222', 
     activeLayoutId: 'modelo_guimaraes',
     chavePix: '',
     tipoChavePix: 'CNPJ'
@@ -152,18 +146,7 @@ export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   ],
   invoiceData: {
     ...BLANK_INVOICE,
-    numero: '',
-    serie: '',
-    dataEmissao: '',
-    protocolo: '',
-    chaveAcesso: '',
-    urlQrCode: '',
-    impostos: { federal: '9,5005', estadual: '20,1000', municipal: '0,00' },
-    placa: '',
-    km: '',
-    motorista: '',
-    operador: '',
-    detalheCodigo: ''
+    impostos: { federal: '9,50', estadual: '20,10', municipal: '0,00' }
   },
   fuels: []
 };
@@ -173,11 +156,11 @@ export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
   name: 'POSTO ALMEIDA 2',
   updatedAt: new Date().toISOString(),
   postoData: {
-    razaoSocial: 'ANTONIO DE ALMEIDA CHAVES-ME',
+    razaoSocial: 'POSTO ALMEIDA 2',
     cnpj: '10.254.688/0002-70',
     inscEstadual: '122047940',
-    endereco: 'RODOVIA BR226, 0 TRIZIDELA\nBARRA DO CORDA-MA 65950-000\nFone:(99)8511-4995',
-    fone: '(99) 8511-4995',
+    endereco: 'RODOVIA BR226, 0 - TRIZIDELA\nBARRA DO CORDA - MA',
+    fone: '(99) 8511-4995', 
     activeLayoutId: 'modelo_almeida',
     chavePix: '',
     tipoChavePix: 'CNPJ'
@@ -188,15 +171,7 @@ export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
   ],
   invoiceData: {
     ...BLANK_INVOICE,
-    numero: '',
-    serie: '',
-    dataEmissao: '',
-    chaveAcesso:"",
-    protocolo: '',
-    urlQrCode: 'http://www.sefaz.ma.gov.br/nfce/consulta',
-    formaPagamento: 'DINHEIRO',
-    impostos: { federal: '9,5000', estadual: '20,1000', municipal: '0,00' },
-  
+    impostos: { federal: '9,50', estadual: '20,10', municipal: '0,00' }
   },
   fuels: []
 };

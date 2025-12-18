@@ -1,12 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates } from '../types';
 import { db } from '../services/StorageService';
 import { BLANK_INVOICE, BLANK_POSTO } from '../constants/defaults';
+import { parseLocaleNumber, toCurrency, quantityToFloat, to3Decimals } from '../utils/formatters';
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,00', estadual: '0,00', municipal: '0,00' };
 
 interface AppContextData {
-  // Estados de Dados
   postoData: PostoData;
   setPostoData: React.Dispatch<React.SetStateAction<PostoData>>;
   invoiceData: InvoiceData;
@@ -17,14 +18,10 @@ interface AppContextData {
   setPrices: React.Dispatch<React.SetStateAction<PriceItem[]>>;
   taxRates: TaxRates;
   setTaxRates: React.Dispatch<React.SetStateAction<TaxRates>>;
-  
-  // Estados de Gerenciamento
   savedModels: SavedModel[];
   customLayouts: LayoutConfig[];
   selectedModelId: string;
   setSelectedModelId: React.Dispatch<React.SetStateAction<string>>;
-  
-  // Ações
   handleLoadModel: (id: string) => void;
   handleSaveModel: () => Promise<void>;
   handleDeleteModel: (id: string) => void;
@@ -34,8 +31,6 @@ interface AppContextData {
   handleImportBackup: (models: SavedModel[], layouts?: LayoutConfig[]) => void;
   handleDeleteLayout: (id: string) => void;
   handleUpdateTaxRates: (newRates: TaxRates) => void;
-  
-  // UI Helpers
   isSaving: boolean;
   notifications: { message: string; type: 'success' | 'error' | 'info'; id: number }[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -47,7 +42,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isSaving, setIsSaving] = useState(false);
   const [notifications, setNotifications] = useState<{ message: string; type: 'success' | 'error' | 'info'; id: number }[]>([]);
   
-  // Dados Principais
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [postoData, setPostoData] = useState<PostoData>(BLANK_POSTO);
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(BLANK_INVOICE);
@@ -55,56 +49,82 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [prices, setPrices] = useState<PriceItem[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRates>(DEFAULT_TAX_RATES);
 
-  // Dados Persistidos
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   const [customLayouts, setCustomLayouts] = useState<LayoutConfig[]>([]);
 
-  // Carregamento Inicial
+  const isInitialLoad = useRef(true);
+
+  // 1. Carregamento Inicial
   useEffect(() => {
     const models = db.getAllModels();
+    const layouts = db.getAllLayouts();
     setSavedModels(models);
-    setCustomLayouts(db.getAllLayouts());
-    if (models.length > 0 && !selectedModelId) {
-       setTimeout(() => handleLoadModel(models[0].id), 50);
+    setCustomLayouts(layouts);
+
+    const lastId = db.getLastActiveId();
+    if (lastId && models.find(m => m.id === lastId)) {
+      handleLoadModel(lastId);
+    } else if (models.length > 0) {
+      handleLoadModel(models[0].id);
     }
+    
+    setTimeout(() => { isInitialLoad.current = false; }, 500);
   }, []);
 
-  // Sincronização de Preços
+  // 2. SINCRONIZAÇÃO GLOBAL DE PREÇOS (CARD vs CASH)
   useEffect(() => {
-    setFuels(currentFuels => {
-      let hasChanges = false;
-      const updatedFuels = currentFuels.map(fuel => {
-        if (!fuel.productId) return fuel;
-        const matchingPrice = prices.find(p => p.id === fuel.productId);
-        if (!matchingPrice) return fuel;
-        
-        const isPriceChanged = fuel.unitPrice !== matchingPrice.price || fuel.unitPriceCard !== matchingPrice.priceCard;
-        const isDataChanged = fuel.name !== matchingPrice.name || fuel.code !== matchingPrice.code;
+    if (isInitialLoad.current || fuels.length === 0) return;
 
-        if (!isPriceChanged && !isDataChanged) return fuel;
+    const isCard = ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
+    
+    setFuels(prevFuels => prevFuels.map(item => {
+      const product = prices.find(p => p.id === item.productId || p.code === item.code);
+      if (!product) return item;
 
-        hasChanges = true;
-        let newTotal = fuel.total;
-        
-        if (isPriceChanged) {
-           const qty = parseFloat(fuel.quantity.replace(/\./g, '').replace(',', '.')) || 0;
-           const price = parseFloat(matchingPrice.price.replace(/\./g, '').replace(',', '.')) || 0;
-           newTotal = (qty * price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
+      const activePriceStr = isCard && product.priceCard && parseLocaleNumber(product.priceCard) > 0 
+        ? product.priceCard 
+        : product.price;
+      
+      const unitPrice = parseLocaleNumber(activePriceStr);
+      const qty = quantityToFloat(item.quantity);
+      const newTotal = toCurrency(qty * unitPrice);
 
-        return {
-          ...fuel,
-          name: matchingPrice.name,
-          code: matchingPrice.code,
-          unit: matchingPrice.unit,
-          unitPrice: matchingPrice.price,
-          unitPriceCard: matchingPrice.priceCard,
-          total: newTotal
-        };
-      });
-      return hasChanges ? updatedFuels : currentFuels;
-    });
-  }, [prices]);
+      if (item.total === newTotal) return item; // Evita loop infinito se não houver mudança
+
+      return {
+        ...item,
+        unitPrice: product.price,
+        unitPriceCard: product.priceCard,
+        total: newTotal
+      };
+    }));
+  }, [invoiceData.formaPagamento, prices]);
+
+  // 3. AUTO-SAVE
+  useEffect(() => {
+    if (isInitialLoad.current || !selectedModelId) return;
+
+    const autoSaveTimer = setTimeout(() => {
+      const currentModel = savedModels.find(m => m.id === selectedModelId);
+      if (!currentModel) return;
+
+      const modelToUpdate: SavedModel = {
+        ...currentModel,
+        postoData,
+        prices,
+        taxRates,
+        invoiceData,
+        fuels,
+        updatedAt: new Date().toISOString()
+      };
+
+      const updatedList = db.saveOrUpdateModel(modelToUpdate);
+      setSavedModels(updatedList);
+      db.saveLastActiveId(selectedModelId);
+    }, 1000);
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [postoData, prices, taxRates, invoiceData, fuels, selectedModelId]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -122,47 +142,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const handleLoadModel = (id: string) => {
     const model = db.getModelById(id);
-    if (!model) {
-      showToast("Modelo não encontrado.", "error");
-      return;
-    }
-    setPostoData(JSON.parse(JSON.stringify({ ...BLANK_POSTO, ...model.postoData })));
-    setPrices(model.prices ? JSON.parse(JSON.stringify(model.prices)) : []);
+    if (!model) return;
+
+    const prevInitial = isInitialLoad.current;
+    isInitialLoad.current = true;
+
+    setPostoData({ ...BLANK_POSTO, ...model.postoData });
+    setPrices(model.prices || []);
     setTaxRates({ ...DEFAULT_TAX_RATES, ...(model.taxRates || {}) });
-    setFuels(model.fuels ? JSON.parse(JSON.stringify(model.fuels)) : []);
-    
-    let loadedInvoice = JSON.parse(JSON.stringify(BLANK_INVOICE));
-    if (model.invoiceData) {
-       loadedInvoice = { ...BLANK_INVOICE, ...model.invoiceData };
-    } else if (model.impostos) {
-       loadedInvoice.impostos = model.impostos;
-    }
-    setInvoiceData(loadedInvoice);
+    setFuels(model.fuels || []);
+    setInvoiceData({ ...BLANK_INVOICE, ...model.invoiceData });
     setSelectedModelId(id);
-    showToast(`Modelo carregado: ${model.name}`, "info");
+    db.saveLastActiveId(id);
+
+    setTimeout(() => { isInitialLoad.current = prevInitial; }, 50);
   };
 
   const handleSaveModel = async () => {
     setIsSaving(true);
-    await new Promise(r => setTimeout(r, 400));
     try {
-      const now = new Date().toISOString();
       const currentId = selectedModelId || Date.now().toString();
-      const autoName = postoData.razaoSocial ? postoData.razaoSocial.substring(0, 30) : `Modelo ${new Date().toLocaleTimeString()}`;
+      const name = selectedModelId 
+        ? (savedModels.find(m => m.id === currentId)?.name || 'Modelo') 
+        : `Modelo ${new Date().toLocaleTimeString()}`;
 
       const modelToSave: SavedModel = {
         id: currentId,
-        name: selectedModelId ? (savedModels.find(m => m.id === currentId)?.name || autoName) : autoName,
-        updatedAt: now,
+        name,
+        updatedAt: new Date().toISOString(),
         postoData, prices, taxRates, invoiceData, fuels
       };
 
       const updatedList = db.saveOrUpdateModel(modelToSave);
       setSavedModels(updatedList);
       setSelectedModelId(currentId);
-      showToast(selectedModelId ? "Modelo atualizado!" : "Novo modelo criado!", "success");
+      db.saveLastActiveId(currentId);
+      showToast(selectedModelId ? "Alterações sincronizadas!" : "Modelo criado e salvo!", "success");
     } catch (error) {
-      console.error(error);
       showToast("Erro ao salvar.", "error");
     } finally {
       setIsSaving(false);
@@ -176,33 +192,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (newList.length > 0) handleLoadModel(newList[0].id);
       else handleNewModel();
     }
-    showToast("Modelo excluído.", "info");
+    showToast("Modelo removido do banco.", "info");
   };
 
   const handleRenameModel = (id: string, newName: string) => {
      const model = savedModels.find(m => m.id === id);
      if (model) {
-        const updated = { ...model, name: newName, updatedAt: new Date().toISOString() };
+        const updated = { ...model, name: newName };
         setSavedModels(db.saveOrUpdateModel(updated));
-        showToast("Renomeado!", "success");
+        showToast("Nome atualizado!", "success");
      }
   };
 
   const handleNewModel = () => {
+    isInitialLoad.current = true;
     setSelectedModelId('');
     setPostoData({ ...BLANK_POSTO });
     setInvoiceData({ ...BLANK_INVOICE });
     setFuels([]);
     setPrices([]);
     setTaxRates({ ...DEFAULT_TAX_RATES });
-    showToast("Editor limpo.", "info");
+    setTimeout(() => { isInitialLoad.current = false; }, 50);
   };
 
   const handleResetAll = () => {
     const defaults = db.resetModels();
     setSavedModels(defaults);
     handleLoadModel(defaults[0].id);
-    showToast("Dados resetados.", "success");
+    showToast("Banco de dados restaurado.", "success");
   };
 
   const handleImportBackup = (models: SavedModel[], layouts?: LayoutConfig[]) => {
@@ -214,21 +231,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSavedModels(models);
     if (models.length > 0) handleLoadModel(models[0].id);
     else handleNewModel();
-    showToast(`Backup restaurado: ${models.length} modelos.`, "success");
+    showToast(`Backup importado com sucesso.`, "success");
   };
 
   const handleDeleteLayout = (id: string) => {
-     if (customLayouts.length <= 1) {
-       showToast("Necessário 1 layout mínimo.", "error");
-       return;
-     }
+     if (customLayouts.length <= 1) return;
      const newLayouts = customLayouts.filter(l => l.id !== id);
      db.saveLayouts(newLayouts);
      setCustomLayouts(newLayouts);
      if (postoData.activeLayoutId === id) {
         setPostoData(prev => ({ ...prev, activeLayoutId: newLayouts[0].id }));
      }
-     showToast("Layout excluído.", "info");
   };
 
   return (
