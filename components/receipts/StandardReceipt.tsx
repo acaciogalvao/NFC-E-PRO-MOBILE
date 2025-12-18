@@ -85,7 +85,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
             <div className={`flex w-full items-center ${smallText} font-black uppercase text-center`}>
               <span className={`${colWidths.it}`}>{(idx + 1).toString().padStart(2, '0')}</span>
               <span className={`${colWidths.cod}`}>{item.code}</span>
-              <span className={`${colWidths.desc} truncate px-1`}>{item.name}</span>
+              <span className={`${colWidths.desc} px-1`}>{item.name}</span>
               <span className={`${colWidths.total}`}>{toCurrency(item.t)}</span>
             </div>
             {/* Detalhes do Item (Segunda linha centralizada) */}
