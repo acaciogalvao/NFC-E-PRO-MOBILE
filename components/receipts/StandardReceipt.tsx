@@ -1,9 +1,10 @@
+
 import React from 'react';
-import { LayoutConfig } from '../../types';
-import { toCurrency, to3Decimals, NFCE_PORTAL_URL, parseLocaleNumber } from '../../utils/formatters';
+import { LayoutConfig, ReceiptData } from '../../types';
+import { toCurrency, to3Decimals, NFCE_PORTAL_URL } from '../../utils/formatters';
 
 interface ReceiptProps {
-  data: any;
+  data: ReceiptData;
   layout: LayoutConfig;
   width: '58mm' | '80mm';
 }
@@ -24,7 +25,6 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
     : '0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000';
 
   const addressLines = (posto.endereco || '').split('\n');
-  const [datePart, timePart] = (invoice.dataEmissao || '').split(' ');
 
   // Definição de colunas para o estilo "tabela densa" da imagem
   const colWidths = {

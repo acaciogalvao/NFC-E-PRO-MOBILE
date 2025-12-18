@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { parseLocaleNumber, toCurrency, to3Decimals, generatePixPayload, generateNfceQrCodeUrl } from '../utils/helpers';
+import { ReceiptData } from '../types';
 
-const DanfeReceipt: React.FC<{ data: any }> = ({ data }) => {
+const DanfeReceipt: React.FC<{ data: ReceiptData }> = ({ data }) => {
   const { posto, invoice, calculations } = data;
   const { rawTotal, valFederal, valEstadual, activeFuels, qrCodeImageUrl } = calculations;
   const cleanKey = (invoice.chaveAcesso || '').replace(/\D/g, '') || '00000000000000000000000000000000000000000000';
@@ -63,8 +65,8 @@ const DanfeReceipt: React.FC<{ data: any }> = ({ data }) => {
                 <div className="col-span-2 border-r border-black">V.UNIT</div>
                 <div className="col-span-2">V.TOTAL</div>
             </div>
-            {activeFuels.map((item: any, idx: number) => (
-                <div key={idx} className="grid grid-cols-12 border-b border-gray-100 text-[8.5px] text-center py-2 font-mono">
+            {activeFuels.map((item, idx) => (
+                <div key={item.id || idx} className="grid grid-cols-12 border-b border-gray-100 text-[8.5px] text-center py-2 font-mono">
                     <div className="col-span-1 border-r border-gray-100 px-1">{item.code}</div>
                     <div className="col-span-5 border-r border-gray-100 px-2 text-left uppercase">{item.name}</div>
                     <div className="col-span-1 border-r border-gray-100">{to3Decimals(item.q)}</div>
@@ -112,11 +114,25 @@ const NoteScreen: React.FC = () => {
   const valEstadual = rawTotal * (pctEstadual / 100);
 
   let qrCodeData = (invoiceData.formaPagamento === 'PIX' && postoData.chavePix) 
-    ? generatePixPayload(postoData.chavePix, postoData.razaoSocial, 'IMPERATRIZ', rawTotal, postoData.tipoChavePix)
+    ? generatePixPayload(postoData.chavePix, postoData.razaoSocial, 'IMPERATRIZ', rawTotal, postoData.tipoChavePix!)
     : generateNfceQrCodeUrl(invoiceData.chaveAcesso, '1');
 
   const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
-  const fullData = { posto: postoData, invoice: invoiceData, calculations: { rawTotal, valFederal, valEstadual, activeFuels, qrCodeImageUrl } };
+  
+  const fullData: ReceiptData = { 
+    posto: postoData, 
+    invoice: invoiceData, 
+    calculations: { 
+      rawTotal, 
+      valFederal, 
+      valEstadual, 
+      valMunicipal: 0,
+      activeFuels, 
+      qrCodeImageUrl,
+      valTotalTributos: valFederal + valEstadual,
+      paymentMethodLabel: invoiceData.formaPagamento
+    } 
+  };
 
   return (
     <div className="flex flex-col items-center min-h-full pb-10">

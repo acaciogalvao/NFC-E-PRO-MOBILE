@@ -1,9 +1,10 @@
+
 import React from 'react';
-import { LayoutConfig } from '../../types';
+import { LayoutConfig, ReceiptData } from '../../types';
 import { toCurrency, to3Decimals, NFCE_PORTAL_URL } from '../../utils/formatters';
 
 interface ReceiptProps {
-  data: any;
+  data: ReceiptData;
   layout: LayoutConfig;
   width: '58mm' | '80mm';
 }

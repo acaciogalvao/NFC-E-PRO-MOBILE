@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { TabId } from '../../types';
+import { TabId, SavedModel } from '../../types';
 import EditScreen from '../../screens/EditScreen';
 import PricesScreen from '../../screens/PricesScreen';
 import NoteScreen from '../../screens/NoteScreen';
@@ -11,11 +12,11 @@ interface MainContentProps {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;
   handleSaveModel: () => void;
-  savedModels: any[];
+  savedModels: SavedModel[];
   handleDeleteModel: (id: string) => void;
   setActionModal: (val: any) => void;
   handleLoadModel: (id: string) => void;
-  handleImportBackup: (models: any[], layouts?: any[]) => void;
+  handleImportBackup: (models: SavedModel[], layouts?: any[]) => void;
 }
 
 const MainContent: React.FC<MainContentProps> = ({

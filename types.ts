@@ -36,7 +36,31 @@ export interface FuelItem {
   unitPrice: string; 
   unitPriceCard?: string; 
   unit: string;
-  total: string; // Valor final
+  total: string;
+}
+
+export interface ActiveFuelItem extends FuelItem {
+  q: number;
+  p: number;
+  t: number;
+}
+
+export interface ReceiptCalculations {
+  rawTotal: number;
+  valTotalTributos: number;
+  valFederal: number;
+  valEstadual: number;
+  valMunicipal: number;
+  activeFuels: ActiveFuelItem[];
+  qrCodeImageUrl: string;
+  paymentMethodLabel: string;
+}
+
+export interface ReceiptData {
+  posto: PostoData;
+  invoice: InvoiceData;
+  fuels?: FuelItem[];
+  calculations: ReceiptCalculations;
 }
 
 export type PixKeyType = 'CNPJ' | 'CPF' | 'EMAIL' | 'TELEFONE' | 'ALEATORIA';

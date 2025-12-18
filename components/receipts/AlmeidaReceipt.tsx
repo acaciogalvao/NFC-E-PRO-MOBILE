@@ -1,9 +1,10 @@
+
 import React from 'react';
-import { LayoutConfig } from '../../types';
-import { toCurrency, to3Decimals, parseLocaleNumber } from '../../utils/formatters';
+import { LayoutConfig, ReceiptData } from '../../types';
+import { toCurrency, to3Decimals } from '../../utils/formatters';
 
 interface ReceiptProps {
-  data: any;
+  data: ReceiptData;
   layout: LayoutConfig;
   width: '58mm' | '80mm';
 }
@@ -35,8 +36,8 @@ const AlmeidaReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
           <div className={`flex font-bold ${fontSizeNormal} border-b border-black mb-1 pb-1.5`}>
              <span className="w-[12%]">#</span><span className="w-[20%]">Cdigo</span><span className="w-[68%]">Descri</span>
           </div>
-          {activeFuels.map((item: any, idx: number) => (
-             <div key={idx} className={`${fontSizeNormal} py-1.5 border-b border-black/5 last:border-0`}>
+          {activeFuels.map((item, idx) => (
+             <div key={item.id || idx} className={`${fontSizeNormal} py-1.5 border-b border-black/5 last:border-0`}>
                 <div className="flex font-bold">
                    <span className="w-[12%]">{(idx + 1).toString().padStart(3, '0')}</span>
                    <span className="w-[20%]">{item.code}</span>
