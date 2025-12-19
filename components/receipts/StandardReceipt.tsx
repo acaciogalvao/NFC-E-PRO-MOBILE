@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LayoutConfig, ReceiptData } from '../../types';
 import { toCurrency, to3Decimals, NFCE_PORTAL_URL } from '../../utils/formatters';
@@ -26,7 +25,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
 
   const addressLines = (posto.endereco || '').split('\n');
 
-  // Definição de colunas para o estilo "tabela densa" da imagem
+  // Definição de colunas para o estilo "tabela densa"
   const colWidths = {
     it: 'w-[5%]',
     cod: 'w-[10%]',
@@ -62,7 +61,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
           DANFE NFC-e - Documento Auxiliar de Nota Fiscal<br/>de Consumidor Eletrônica
         </div>
         <div className="text-[7px] font-bold mt-1 leading-tight">
-          NFC-e não permite aproveitamento de crédito de ICMS
+          {layout.customTexts.subHeader || 'NFC-e não permite aproveitamento de crédito de ICMS'}
         </div>
       </div>
 
@@ -125,7 +124,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
       {/* SEÇÃO 6: INFORMAÇÕES ADICIONAIS */}
       <div className={`py-2 border-b border-black space-y-1 ${safePadding}`}>
         <div className="font-black text-[8.5px] uppercase tracking-tight">
-          INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE
+          {layout.customTexts.taxLabel || 'INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE'}
         </div>
         <div className={`${fontSize} font-bold uppercase`}>
           Placa: {invoice.placa || '---'} KM: {invoice.km || '---'}
@@ -147,7 +146,8 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
         <div className="font-black text-[9px] uppercase leading-tight">
           N.º: {invoice.numero || '---'} &nbsp; Série: {invoice.serie || '001'} &nbsp; Emissão: {invoice.dataEmissao}
         </div>
-        <div className="font-black text-[11px] uppercase tracking-widest bg-black/5 py-1 w-full">
+        {/* Via Consumidor Centralizado abaixo da série */}
+        <div className="font-black text-[10px] uppercase tracking-widest bg-black/5 py-1 w-full text-center">
           Via Consumidor
         </div>
         <div className="pt-1">
@@ -164,10 +164,10 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
 
       {/* SEÇÃO 9: CONSUMIDOR */}
       <div className="py-2 border-b border-black font-black text-[10px] uppercase flex items-center justify-center">
-        CONSUMIDOR NÃO IDENTIFICADO
+        {layout.customTexts.consumerLabel || 'CONSUMIDOR NÃO IDENTIFICADO'}
       </div>
 
-      {/* SEÇÃO 10: QR CODE */}
+      {/* SEÇÃO 10: QR CODE - Instrução movida para cima */}
       <div className={`py-5 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
         <div className="text-[9px] font-black uppercase mb-3 tracking-tight">Consulta via leitor de QR Code</div>
         <div className="bg-white p-1">
@@ -175,9 +175,9 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
         </div>
       </div>
 
-      {/* SEÇÃO 11: PROTOCOLO FINAL */}
+      {/* SEÇÃO 11: PROTOCOLO FINAL - Nome alterado para Protocolo Autorização */}
       <div className={`py-3 flex flex-col items-center justify-center text-[9px] font-black leading-tight uppercase ${safePadding}`}>
-        <div>Protocolo Autorização: {invoice.protocolo || '---'}</div>
+        <div>Protocolo Autorização : {invoice.protocolo || '---'}</div>
         <div className="mt-1">{invoice.dataEmissao}</div>
       </div>
     </div>

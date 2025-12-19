@@ -71,7 +71,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       handleLoadModel(models[0].id);
     }
 
-    // Tenta sincronizar com a nuvem silenciosamente no início
+    // Tenta sincronizar silenciosamente no início
     handleSyncFromCloud(true);
   }, []);
 
@@ -85,18 +85,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!silent) setIsSyncing(true);
     try {
       const cloudModels = await api.getModels();
-      if (cloudModels.length > 0) {
-        // Merge: mantém o que tem no local, adiciona o que vem da nuvem
+      if (cloudModels && cloudModels.length > 0) {
         const localModels = db.getAllModels();
         const merged = [...localModels];
         
         cloudModels.forEach(cm => {
           const index = merged.findIndex(m => m.id === cm.id);
           if (index === -1) {
-            merged.push(cm); // Recupera modelo que não existe localmente
+            merged.push(cm); // Recupera da nuvem para o local
           } else {
-            // Se a data da nuvem for mais recente, atualiza local
-            if (new Date(cm.updatedAt) > new Date(merged[index].updatedAt)) {
+            // Se cloud for mais recente, atualiza local
+            if (cm.updatedAt && merged[index].updatedAt && new Date(cm.updatedAt) > new Date(merged[index].updatedAt)) {
               merged[index] = cm;
             }
           }
@@ -104,10 +103,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         db.saveModels(merged);
         setSavedModels(merged);
-        if (!silent) showToast(`Sincronizado: ${cloudModels.length} modelos na nuvem`, "success");
+        if (!silent) showToast(`Sincronizado: ${cloudModels.length} itens recuperados/atualizados`, "success");
+      } else if (!silent) {
+        showToast("Nenhum dado encontrado na nuvem ou servidor indisponível.", "info");
       }
     } catch (error) {
-      if (!silent) showToast("Erro ao sincronizar com nuvem", "error");
+      if (!silent) showToast("Erro ao sincronizar. Verifique a conexão com o servidor.", "error");
     } finally {
       if (!silent) setIsSyncing(false);
     }
@@ -157,33 +158,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         fuels 
       };
 
-      // 1. Salva Local
+      // 1. Salva Local (Sempre prioritário e garantido)
       const updatedList = db.saveOrUpdateModel(modelToSave);
       setSavedModels(updatedList);
       setSelectedModelId(currentId);
       db.saveLastActiveId(currentId);
       
-      // 2. Salva na Nuvem (Assíncrono)
-      const savedInCloud = await api.saveModel(modelToSave);
-      if (savedInCloud && savedInCloud.id !== modelToSave.id) {
-        // Se a API gerou um novo ID (MongoDB _id), atualizamos localmente
-        const finalList = db.getAllModels().map(m => m.id === currentId ? savedInCloud : m);
-        db.saveModels(finalList);
-        setSavedModels(finalList);
-        setSelectedModelId(savedInCloud.id);
-        db.saveLastActiveId(savedInCloud.id);
-      }
+      // 2. Tenta salvar na Nuvem (sem bloquear se falhar)
+      api.saveModel(modelToSave).then(savedInCloud => {
+        if (savedInCloud && savedInCloud.id !== modelToSave.id) {
+          // Se a API gerou um ID MongoDB real (_id -> id), sincronizamos o ID local
+          const finalList = db.getAllModels().map(m => m.id === currentId ? savedInCloud : m);
+          db.saveModels(finalList);
+          setSavedModels(finalList);
+          setSelectedModelId(savedInCloud.id);
+          db.saveLastActiveId(savedInCloud.id);
+        }
+      }).catch(e => {
+        console.warn("Salvamento na nuvem falhou, mas dados locais estão salvos.");
+      });
       
-      showToast("Guardado localmente e na nuvem!", "success");
+      showToast("Dados guardados localmente!", "success");
     } catch (error) {
-      showToast("Erro ao gravar. Verifique conexão.", "error");
+      showToast("Erro ao gravar localmente.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteModel = async (id: string) => {
-    // Apenas deleta localmente para permitir recuperação posterior via Sync
+    // 1. Deleta localmente
     const newList = db.deleteModel(id);
     setSavedModels(newList);
     
@@ -191,6 +195,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (newList.length > 0) handleLoadModel(newList[0].id);
       else handleNewModel();
     }
+    
+    // 2. Tenta deletar na nuvem (opcional)
+    api.deleteModel(id).catch(() => {});
+    
     showToast("Modelo removido do cache local.", "info");
   };
 
@@ -200,7 +208,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const updated = { ...model, name: newName, updatedAt: new Date().toISOString() };
         db.saveOrUpdateModel(updated);
         setSavedModels(prev => prev.map(m => m.id === id ? updated : m));
-        await api.saveModel(updated);
+        api.saveModel(updated).catch(() => {});
         showToast("Título atualizado!", "success");
      }
   };
@@ -221,7 +229,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const defaults = db.resetModels();
     setSavedModels(defaults);
     handleLoadModel(defaults[0].id);
-    showToast("Cache local restaurado.", "success");
+    showToast("Cache local restaurado aos padrões.", "success");
   };
 
   const handleImportBackup = (models: SavedModel[], layouts?: LayoutConfig[]) => {
