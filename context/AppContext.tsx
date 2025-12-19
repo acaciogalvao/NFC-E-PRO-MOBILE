@@ -57,10 +57,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isInitialMount = useRef(true);
 
-  // Inicialização e Sincronização
   useEffect(() => {
     const init = async () => {
-      // 1. Carrega o que tem no LocalStorage primeiro para resposta imediata
       const localModels = db.getAllModels();
       const layouts = db.getAllLayouts();
       setSavedModels(localModels);
@@ -73,7 +71,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         handleLoadModel(localModels[0].id);
       }
 
-      // 2. Sincroniza com o MongoDB Atlas
       await handleSyncFromCloud(true);
     };
 
@@ -93,40 +90,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!silent) setIsSyncing(true);
     try {
       const cloudModels = await api.getModels();
-      if (cloudModels && cloudModels.length > 0) {
+      if (cloudModels) {
         const localModels = db.getAllModels();
-        
-        // Merge inteligente: A nuvem sempre vence se o ID existir lá
         const merged = [...localModels];
+        
         cloudModels.forEach(cm => {
-          const index = merged.findIndex(m => m.id === cm.id);
+          const index = merged.findIndex(m => m.id === cm.id || (m.name === cm.name && m.id.includes('user_')));
           if (index !== -1) {
-            merged[index] = cm; // Atualiza local com dados do banco
+            merged[index] = cm;
           } else {
-            merged.push(cm); // Adiciona novo vindo do banco
+            merged.push(cm);
           }
         });
 
         db.saveModels(merged);
         setSavedModels(merged);
         
-        // Recarrega o modelo atual se ele foi atualizado
-        if (selectedModelId) {
-          const updated = merged.find(m => m.id === selectedModelId);
-          if (updated) {
-             // Atualiza estados sem disparar auto-save circular
-             setPostoData(updated.postoData);
-             setInvoiceData(updated.invoiceData);
-             setFuels(updated.fuels);
-             setPrices(updated.prices);
-             setTaxRates(updated.taxRates);
-          }
-        }
-
-        if (!silent) showToast("Dados sincronizados com o MongoDB Atlas!", "success");
+        if (!silent) showToast("Base de dados sincronizada!", "success");
       }
     } catch (error) {
-      if (!silent) showToast("Erro de conexão com o banco de dados.", "error");
+      if (!silent) showToast("Erro ao conectar com MongoDB.", "error");
     } finally {
       if (!silent) setIsSyncing(false);
     }
@@ -134,18 +117,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const handleSaveModel = async () => {
     if (!postoData.razaoSocial) {
-      showToast("Razão Social é obrigatória para salvar.", "error");
+      showToast("Dê um nome ao posto antes de salvar.", "error");
       return;
     }
 
     setIsSaving(true);
     try {
-      const currentId = selectedModelId || `user_${Date.now()}`;
-      const existing = savedModels.find(m => m.id === currentId);
-      
+      const currentModel = savedModels.find(m => m.id === selectedModelId);
       const modelToSave: SavedModel = {
-        id: currentId,
-        name: existing?.name || `Modelo ${new Date().toLocaleTimeString()}`,
+        id: selectedModelId || `user_${Date.now()}`,
+        name: currentModel?.name || postoData.razaoSocial,
         updatedAt: new Date().toISOString(),
         postoData,
         prices,
@@ -154,21 +135,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         fuels
       };
 
-      // 1. Salva na Nuvem primeiro (MongoDB Atlas)
-      const cloudResult = await api.saveModel(modelToSave);
+      // Tenta salvar na nuvem primeiro
+      const savedInCloud = await api.saveModel(modelToSave);
       
-      // 2. Se a nuvem salvou e retornou um novo ID (do MongoDB), usamos ele
-      const finalModel = cloudResult || modelToSave;
+      // Se salvou na nuvem, usamos o objeto retornado (que tem o ID definitivo do MongoDB)
+      const finalModel = savedInCloud || modelToSave;
 
-      // 3. Salva Local
+      // Se o ID mudou (de temporário para definitivo), removemos o rascunho antigo
+      if (selectedModelId && selectedModelId !== finalModel.id) {
+        db.deleteModel(selectedModelId);
+      }
+
       const updatedList = db.saveOrUpdateModel(finalModel);
       setSavedModels(updatedList);
       setSelectedModelId(finalModel.id);
       db.saveLastActiveId(finalModel.id);
 
-      showToast("Sincronizado com Sucesso!", "success");
+      showToast("Dados guardados no MongoDB!", "success");
     } catch (error) {
-      showToast("Erro ao salvar. Verifique sua conexão.", "error");
+      showToast("Erro ao persistir dados.", "error");
     } finally {
       setIsSaving(false);
     }
@@ -182,7 +167,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPrices(model.prices || []);
     setTaxRates(model.taxRates || DEFAULT_TAX_RATES);
     setFuels(model.fuels || []);
-    setInvoiceData(model.invoiceData);
+    setInvoiceData({ ...BLANK_INVOICE, ...model.invoiceData });
     setSelectedModelId(id);
     db.saveLastActiveId(id);
   };
@@ -194,7 +179,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setFuels([]);
     setPrices([]);
     setTaxRates(DEFAULT_TAX_RATES);
-    showToast("Novo rascunho", "info");
+    showToast("Novo rascunho iniciado", "info");
   };
 
   const handleDeleteModel = async (id: string) => {
@@ -203,9 +188,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newList = db.deleteModel(id);
       setSavedModels(newList);
       if (id === selectedModelId) handleNewModel();
-      showToast("Modelo removido do banco.", "info");
+      showToast("Modelo removido permanentemente.", "info");
     } catch {
-      showToast("Erro ao deletar do banco.", "error");
+      showToast("Erro ao deletar da nuvem.", "error");
     }
   };
 
@@ -224,6 +209,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const defaults = db.resetModels();
     setSavedModels(defaults);
     handleLoadModel(defaults[0].id);
+    showToast("Configurações padrão restauradas.", "success");
   };
 
   const handleImportBackup = (models: SavedModel[], layouts?: LayoutConfig[]) => {
@@ -233,7 +219,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
        setCustomLayouts(layouts);
     }
     setSavedModels(models);
-    showToast("Backup importado.", "success");
+    showToast("Backup importado com sucesso.", "success");
   };
 
   const handleDeleteLayout = (id: string) => {

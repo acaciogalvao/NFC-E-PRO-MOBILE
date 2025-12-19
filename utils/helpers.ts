@@ -1,3 +1,4 @@
+
 // Utilitários de Formatação e Parseamento
 
 export const parseLocaleNumber = (stringNumber: string) => {
@@ -50,18 +51,12 @@ export const formatEmailPix = (v: string) => {
 
 export const formatPixKey = (value: string, type: string) => {
   switch (type) {
-    case 'CNPJ':
-      return formatCNPJ(value);
-    case 'CPF':
-      return formatCPF(value);
-    case 'TELEFONE':
-      return formatPhone(value);
-    case 'EMAIL':
-      return formatEmailPix(value);
-    case 'ALEATORIA':
-      return value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 36);
-    default:
-      return value;
+    case 'CNPJ': return formatCNPJ(value);
+    case 'CPF': return formatCPF(value);
+    case 'TELEFONE': return formatPhone(value);
+    case 'EMAIL': return formatEmailPix(value);
+    case 'ALEATORIA': return value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 36);
+    default: return value;
   }
 };
 
@@ -108,6 +103,47 @@ export const generateNfceQrCodeUrl = (
   return `https://www.sefaz.${uf.toLowerCase()}.gov.br/nfce/consulta?p=${cleanChave}|${versao}|${ambiente}|${csc}`;
 };
 
+/**
+ * GERAÇÃO DE PAYLOAD PIX DINÂMICO (PADRÃO BRASIL / EMV)
+ * Corrigido para calcular comprimentos e CRC16 real.
+ */
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, type: string) => {
-  return `00020101021126330014br.gov.bcb.pix0114${key}5204000053039865405${amount.toFixed(2)}5802BR5913${name}6009${city}62070503***6304ABCD`;
+  const cleanKey = type === 'EMAIL' ? key : key.replace(/\D/g, '');
+  const cleanName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().slice(0, 25);
+  const cleanCity = (city || 'IMPERATRIZ').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().slice(0, 15);
+
+  const formatField = (id: string, val: string) => {
+    const len = val.length.toString().padStart(2, '0');
+    return `${id}${len}${val}`;
+  };
+
+  const merchantAccountInfo = formatField('00', 'br.gov.bcb.pix') + formatField('01', cleanKey);
+  
+  let payload = '000201'; // Payload Format Indicator
+  payload += formatField('26', merchantAccountInfo);
+  payload += '52040000'; // Merchant Category Code (MCC)
+  payload += '5303986'; // Transaction Currency (BRL)
+  
+  if (amount > 0) {
+    payload += formatField('54', amount.toFixed(2));
+  }
+  
+  payload += '5802BR'; // Country Code
+  payload += formatField('59', cleanName);
+  payload += formatField('60', cleanCity);
+  payload += formatField('62', formatField('05', '***')); // Additional Data (TXID)
+  payload += '6304'; // CRC16 Prefix
+
+  // Cálculo de CRC16 CCITT (Polinômio 0x1021)
+  let crc = 0xFFFF;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= (payload.charCodeAt(i) << 8);
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021;
+      else crc <<= 1;
+    }
+  }
+  
+  const finalCrc = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+  return payload + finalCrc;
 };
