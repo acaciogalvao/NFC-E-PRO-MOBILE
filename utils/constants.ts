@@ -1,10 +1,11 @@
+
 import { SavedModel, PostoData, InvoiceData, LayoutConfig } from '../types';
 
 export const LOCAL_STORAGE_KEY_LAYOUTS = 'nfce_pro_layouts_v4'; 
 export const LOCAL_STORAGE_KEY_MODELS = 'nfce_models_db_v1';
 export const LOCAL_STORAGE_KEY_ACTIVE_ID = 'nfce_pro_active_id_v1';
 
-// URL da sua API rodando no Node.js
+// Ajustado para o endereço do seu servidor local ou produção
 export const API_BASE_URL = 'http://localhost:5000/api'; 
 
 export const BLANK_POSTO: PostoData = {
@@ -109,15 +110,15 @@ export const ICCAR_DEFAULT_MODEL: SavedModel = {
     cnpj: '02.280.133/0047-77',
     inscEstadual: '124846041',
     endereco: 'ROD BR 010, 25\nJARDIM TROPICAL, IMPERATRIZ - MA',
-    fone: '(99) 3524-1111', 
+    fone: "",
     activeLayoutId: 'padrao_iccar',
     chavePix: '02.280.133/0047-77',
     tipoChavePix: 'CNPJ'
   },
   taxRates: { federal: '5,82', estadual: '20,32', municipal: '0,00' },
   prices: [
-    { id: '1', code: '1', name: 'BS10 DIESEL BS10', unit: 'L', price: '5,510', priceCard: '5,510' },
-    { id: '2', code: '2', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,890', priceCard: '5,890' },
+    { id: '1', code: 'BS10', name: 'DIESEL S10', unit: 'L', price: '5,510', priceCard: '6,000' },
+    { id: '2', code: 'BGC', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,890', priceCard: '5,890' },
   ],
   invoiceData: { 
     ...BLANK_INVOICE, 

@@ -1,9 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates } from '../types';
 import { db } from '../services/storage';
 import { api } from '../services/api';
 import { BLANK_INVOICE, BLANK_POSTO } from '../utils/constants';
-import { parseLocaleNumber, toCurrency, quantityToFloat } from '../utils/helpers';
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,00', estadual: '0,00', municipal: '0,00' };
 
@@ -55,24 +55,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   const [customLayouts, setCustomLayouts] = useState<LayoutConfig[]>([]);
 
-  const isUpdatingState = useRef(false);
+  const isInitialMount = useRef(true);
 
-  // Inicialização
+  // Inicialização e Sincronização
   useEffect(() => {
-    const models = db.getAllModels();
-    const layouts = db.getAllLayouts();
-    setSavedModels(models);
-    setCustomLayouts(layouts);
+    const init = async () => {
+      // 1. Carrega o que tem no LocalStorage primeiro para resposta imediata
+      const localModels = db.getAllModels();
+      const layouts = db.getAllLayouts();
+      setSavedModels(localModels);
+      setCustomLayouts(layouts);
 
-    const lastId = db.getLastActiveId();
-    if (lastId && models.find(m => m.id === lastId)) {
-      handleLoadModel(lastId);
-    } else if (models.length > 0) {
-      handleLoadModel(models[0].id);
+      const lastId = db.getLastActiveId();
+      if (lastId && localModels.find(m => m.id === lastId)) {
+        handleLoadModel(lastId);
+      } else if (localModels.length > 0) {
+        handleLoadModel(localModels[0].id);
+      }
+
+      // 2. Sincroniza com o MongoDB Atlas
+      await handleSyncFromCloud(true);
+    };
+
+    if (isInitialMount.current) {
+      init();
+      isInitialMount.current = false;
     }
-
-    // Tenta sincronizar silenciosamente no início
-    handleSyncFromCloud(true);
   }, []);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -87,149 +95,135 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const cloudModels = await api.getModels();
       if (cloudModels && cloudModels.length > 0) {
         const localModels = db.getAllModels();
-        const merged = [...localModels];
         
+        // Merge inteligente: A nuvem sempre vence se o ID existir lá
+        const merged = [...localModels];
         cloudModels.forEach(cm => {
           const index = merged.findIndex(m => m.id === cm.id);
-          if (index === -1) {
-            merged.push(cm); // Recupera da nuvem para o local
+          if (index !== -1) {
+            merged[index] = cm; // Atualiza local com dados do banco
           } else {
-            // Se cloud for mais recente, atualiza local
-            if (cm.updatedAt && merged[index].updatedAt && new Date(cm.updatedAt) > new Date(merged[index].updatedAt)) {
-              merged[index] = cm;
-            }
+            merged.push(cm); // Adiciona novo vindo do banco
           }
         });
 
         db.saveModels(merged);
         setSavedModels(merged);
-        if (!silent) showToast(`Sincronizado: ${cloudModels.length} itens recuperados/atualizados`, "success");
-      } else if (!silent) {
-        showToast("Nenhum dado encontrado na nuvem ou servidor indisponível.", "info");
+        
+        // Recarrega o modelo atual se ele foi atualizado
+        if (selectedModelId) {
+          const updated = merged.find(m => m.id === selectedModelId);
+          if (updated) {
+             // Atualiza estados sem disparar auto-save circular
+             setPostoData(updated.postoData);
+             setInvoiceData(updated.invoiceData);
+             setFuels(updated.fuels);
+             setPrices(updated.prices);
+             setTaxRates(updated.taxRates);
+          }
+        }
+
+        if (!silent) showToast("Dados sincronizados com o MongoDB Atlas!", "success");
       }
     } catch (error) {
-      if (!silent) showToast("Erro ao sincronizar. Verifique a conexão com o servidor.", "error");
+      if (!silent) showToast("Erro de conexão com o banco de dados.", "error");
     } finally {
       if (!silent) setIsSyncing(false);
     }
   };
 
-  const handleUpdateTaxRates = (newRates: TaxRates) => {
-    setTaxRates(newRates);
-    setInvoiceData(prev => ({ ...prev, impostos: { ...prev.impostos, ...newRates } }));
-  };
-
-  const handleLoadModel = (id: string) => {
-    const model = db.getModelById(id);
-    if (!model) return;
-    
-    isUpdatingState.current = true;
-    setPostoData({ ...BLANK_POSTO, ...model.postoData });
-    setPrices(model.prices || []);
-    setTaxRates({ ...DEFAULT_TAX_RATES, ...(model.taxRates || {}) });
-    setFuels(model.fuels || []);
-    setInvoiceData({ ...BLANK_INVOICE, ...model.invoiceData });
-    setSelectedModelId(id);
-    db.saveLastActiveId(id);
-
-    setTimeout(() => { isUpdatingState.current = false; }, 150);
-  };
-
   const handleSaveModel = async () => {
     if (!postoData.razaoSocial) {
-      showToast("Preencha ao menos o nome do posto!", "error");
+      showToast("Razão Social é obrigatória para salvar.", "error");
       return;
     }
 
     setIsSaving(true);
     try {
       const currentId = selectedModelId || `user_${Date.now()}`;
-      const existingModel = savedModels.find(m => m.id === currentId);
-      const name = existingModel?.name || `Modelo ${new Date().toLocaleTimeString()}`;
+      const existing = savedModels.find(m => m.id === currentId);
       
-      const modelToSave: SavedModel = { 
-        id: currentId, 
-        name, 
-        updatedAt: new Date().toISOString(), 
-        postoData, 
-        prices, 
-        taxRates, 
-        invoiceData, 
-        fuels 
+      const modelToSave: SavedModel = {
+        id: currentId,
+        name: existing?.name || `Modelo ${new Date().toLocaleTimeString()}`,
+        updatedAt: new Date().toISOString(),
+        postoData,
+        prices,
+        taxRates,
+        invoiceData,
+        fuels
       };
 
-      // 1. Salva Local (Sempre prioritário e garantido)
-      const updatedList = db.saveOrUpdateModel(modelToSave);
+      // 1. Salva na Nuvem primeiro (MongoDB Atlas)
+      const cloudResult = await api.saveModel(modelToSave);
+      
+      // 2. Se a nuvem salvou e retornou um novo ID (do MongoDB), usamos ele
+      const finalModel = cloudResult || modelToSave;
+
+      // 3. Salva Local
+      const updatedList = db.saveOrUpdateModel(finalModel);
       setSavedModels(updatedList);
-      setSelectedModelId(currentId);
-      db.saveLastActiveId(currentId);
-      
-      // 2. Tenta salvar na Nuvem (sem bloquear se falhar)
-      api.saveModel(modelToSave).then(savedInCloud => {
-        if (savedInCloud && savedInCloud.id !== modelToSave.id) {
-          // Se a API gerou um ID MongoDB real (_id -> id), sincronizamos o ID local
-          const finalList = db.getAllModels().map(m => m.id === currentId ? savedInCloud : m);
-          db.saveModels(finalList);
-          setSavedModels(finalList);
-          setSelectedModelId(savedInCloud.id);
-          db.saveLastActiveId(savedInCloud.id);
-        }
-      }).catch(e => {
-        console.warn("Salvamento na nuvem falhou, mas dados locais estão salvos.");
-      });
-      
-      showToast("Dados guardados localmente!", "success");
+      setSelectedModelId(finalModel.id);
+      db.saveLastActiveId(finalModel.id);
+
+      showToast("Sincronizado com Sucesso!", "success");
     } catch (error) {
-      showToast("Erro ao gravar localmente.", "error");
+      showToast("Erro ao salvar. Verifique sua conexão.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDeleteModel = async (id: string) => {
-    // 1. Deleta localmente
-    const newList = db.deleteModel(id);
-    setSavedModels(newList);
+  const handleLoadModel = (id: string) => {
+    const model = db.getModelById(id);
+    if (!model) return;
     
-    if (id === selectedModelId) {
-      if (newList.length > 0) handleLoadModel(newList[0].id);
-      else handleNewModel();
-    }
-    
-    // 2. Tenta deletar na nuvem (opcional)
-    api.deleteModel(id).catch(() => {});
-    
-    showToast("Modelo removido do cache local.", "info");
-  };
-
-  const handleRenameModel = async (id: string, newName: string) => {
-     const model = savedModels.find(m => m.id === id);
-     if (model) {
-        const updated = { ...model, name: newName, updatedAt: new Date().toISOString() };
-        db.saveOrUpdateModel(updated);
-        setSavedModels(prev => prev.map(m => m.id === id ? updated : m));
-        api.saveModel(updated).catch(() => {});
-        showToast("Título atualizado!", "success");
-     }
+    setPostoData(model.postoData);
+    setPrices(model.prices || []);
+    setTaxRates(model.taxRates || DEFAULT_TAX_RATES);
+    setFuels(model.fuels || []);
+    setInvoiceData(model.invoiceData);
+    setSelectedModelId(id);
+    db.saveLastActiveId(id);
   };
 
   const handleNewModel = () => {
-    isUpdatingState.current = true;
     setSelectedModelId('');
-    setPostoData({ ...BLANK_POSTO });
-    setInvoiceData({ ...BLANK_INVOICE });
+    setPostoData(BLANK_POSTO);
+    setInvoiceData(BLANK_INVOICE);
     setFuels([]);
     setPrices([]);
-    setTaxRates({ ...DEFAULT_TAX_RATES });
-    setTimeout(() => { isUpdatingState.current = false; }, 150);
-    showToast("Novo rascunho iniciado", "info");
+    setTaxRates(DEFAULT_TAX_RATES);
+    showToast("Novo rascunho", "info");
+  };
+
+  const handleDeleteModel = async (id: string) => {
+    try {
+      await api.deleteModel(id);
+      const newList = db.deleteModel(id);
+      setSavedModels(newList);
+      if (id === selectedModelId) handleNewModel();
+      showToast("Modelo removido do banco.", "info");
+    } catch {
+      showToast("Erro ao deletar do banco.", "error");
+    }
+  };
+
+  const handleRenameModel = async (id: string, newName: string) => {
+    const model = savedModels.find(m => m.id === id);
+    if (model) {
+      const updated = { ...model, name: newName, updatedAt: new Date().toISOString() };
+      await api.saveModel(updated);
+      const list = db.saveOrUpdateModel(updated);
+      setSavedModels(list);
+      showToast("Título atualizado!", "success");
+    }
   };
 
   const handleResetAll = () => {
     const defaults = db.resetModels();
     setSavedModels(defaults);
     handleLoadModel(defaults[0].id);
-    showToast("Cache local restaurado aos padrões.", "success");
   };
 
   const handleImportBackup = (models: SavedModel[], layouts?: LayoutConfig[]) => {
@@ -239,19 +233,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
        setCustomLayouts(layouts);
     }
     setSavedModels(models);
-    if (models.length > 0) handleLoadModel(models[0].id);
-    else handleNewModel();
-    showToast(`${models.length} modelos importados.`, "success");
+    showToast("Backup importado.", "success");
   };
 
   const handleDeleteLayout = (id: string) => {
-     if (customLayouts.length <= 1) return;
      const newLayouts = customLayouts.filter(l => l.id !== id);
      db.saveLayouts(newLayouts);
      setCustomLayouts(newLayouts);
-     if (postoData.activeLayoutId === id) {
-        setPostoData(prev => ({ ...prev, activeLayoutId: newLayouts[0].id }));
-     }
+  };
+
+  const handleUpdateTaxRates = (rates: TaxRates) => {
+    setTaxRates(rates);
   };
 
   return (

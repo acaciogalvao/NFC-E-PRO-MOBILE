@@ -1,3 +1,4 @@
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -7,60 +8,31 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors()); // Permite conexões do Frontend
-app.use(express.json({ limit: '50mb' })); // Aumenta limite para dados grandes
+app.use(cors()); 
+app.use(express.json({ limit: '50mb' })); 
 
 // --- CONEXÃO MONGODB ATLAS ---
-const MONGO_URI = 'mongodb+srv://acaciogalvao:acacio1182@nfc-epromobile.ckpw9jf.mongodb.net/nfce_db?retryWrites=true&w=majority&appName=NFC-eProMobile';
+// Utilizando a string de conexão fornecida pelo usuário
+const MONGO_URI = 'mongodb+srv://acaciogalvao:acaciogalvao@nfc-epromobile.ckpw9jf.mongodb.net/nfce_db?retryWrites=true&w=majority&appName=NFC-eProMobile';
 
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('✅ MongoDB Atlas Conectado!'))
+  .then(() => console.log('✅ MongoDB Atlas Conectado com Sucesso!'))
   .catch(err => console.error('❌ Erro de conexão MongoDB:', err));
 
 // --- ROTAS DA API ---
 
-// Rota de Teste (Health Check Detalhado)
+// Health Check
 app.get('/api/health', async (req, res) => {
-  try {
-    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-    const dbState = mongoose.connection.readyState;
-    
-    let modelCount = 0;
-    if (dbState === 1) {
-      modelCount = await NfceModel.countDocuments();
-    }
-
-    res.json({
-      status: 'online',
-      serverTime: new Date().toISOString(),
-      database: {
-        connected: dbState === 1,
-        stateCode: dbState
-      },
-      stats: {
-        models: modelCount
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
-      message: error.message 
-    });
-  }
+  res.json({
+    status: 'online',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Rota raiz simples
-app.get('/', (req, res) => {
-  res.send('API NFC-e Pro Mobile está online 🚀');
-});
-
-/**
- * LISTAR TODOS OS MODELOS
- * GET /api/models
- */
+// Listar Modelos
 app.get('/api/models', async (req, res) => {
   try {
-    // Busca todos e ordena pelo mais recente
     const models = await NfceModel.find().sort({ updatedAt: -1 });
     res.json(models);
   } catch (error) {
@@ -68,44 +40,33 @@ app.get('/api/models', async (req, res) => {
   }
 });
 
-/**
- * OBTER UM MODELO POR ID
- * GET /api/models/:id
- */
-app.get('/api/models/:id', async (req, res) => {
-  try {
-    const model = await NfceModel.findById(req.params.id);
-    if (!model) return res.status(404).json({ message: 'Modelo não encontrado' });
-    res.json(model);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * CRIAR NOVO MODELO
- * POST /api/models
- */
+// Criar/Salvar Modelo
 app.post('/api/models', async (req, res) => {
   try {
-    const newModel = new NfceModel(req.body);
-    const savedModel = await newModel.save();
+    // Se o modelo já tem um ID que não é temporário, tentamos atualizar
+    const { id, ...data } = req.body;
+    
+    let savedModel;
+    if (id && id.length >= 24) { // Padrão de ID do MongoDB
+      savedModel = await NfceModel.findByIdAndUpdate(id, data, { new: true, upsert: true });
+    } else {
+      const newModel = new NfceModel(data);
+      savedModel = await newModel.save();
+    }
+    
     res.status(201).json(savedModel);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-/**
- * ATUALIZAR MODELO EXISTENTE
- * PUT /api/models/:id
- */
+// Atualizar Modelo por ID
 app.put('/api/models/:id', async (req, res) => {
   try {
     const updatedModel = await NfceModel.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true } // Retorna o objeto já atualizado
+      { new: true }
     );
     if (!updatedModel) return res.status(404).json({ message: 'Modelo não encontrado' });
     res.json(updatedModel);
@@ -114,21 +75,16 @@ app.put('/api/models/:id', async (req, res) => {
   }
 });
 
-/**
- * DELETAR MODELO
- * DELETE /api/models/:id
- */
+// Deletar Modelo
 app.delete('/api/models/:id', async (req, res) => {
   try {
-    const deleted = await NfceModel.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: 'Modelo não encontrado' });
-    res.json({ message: 'Modelo deletado com sucesso' });
+    await NfceModel.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Modelo removido do banco de dados' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Inicia o servidor
 app.listen(PORT, () => {
-  console.log(`📡 Servidor rodando na porta ${PORT}`);
+  console.log(`📡 Servidor API rodando na porta ${PORT}`);
 });
