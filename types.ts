@@ -9,7 +9,7 @@ export interface LayoutConfig {
   id: string;
   name: string;
   fontFamily: 'MONO' | 'SANS';
-  fontSize: 'SMALL' | 'MEDIUM';
+  fontSize: 'SMALL' | 'MEDIUM' | 'LARGE';
   textAlign: 'LEFT' | 'CENTER';
   showSidebars: boolean; 
   showBorders: boolean; 
@@ -17,13 +17,18 @@ export interface LayoutConfig {
   showConsumer: boolean;
   showQrCode: boolean;
   showFooter: boolean;
+  showSeparatorLines: boolean;
+  upperCaseAll: boolean;
+  lineSpacing: 'TIGHT' | 'NORMAL' | 'WIDE';
   density: 'COMPACT' | 'COMFORTABLE';
+  logoUrl?: string;
   customTexts: {
     headerTitle: string;
     subHeader: string;
     taxLabel: string;
     consumerLabel: string;
     footerMessage: string;
+    extraNotes?: string;
   };
 }
 
@@ -70,6 +75,7 @@ export interface PostoData {
   cnpj: string;
   inscEstadual: string;
   endereco: string;
+  cep?: string;
   fone: string;
   activeLayoutId: string;
   chavePix?: string;
@@ -95,6 +101,7 @@ export interface InvoiceData {
   urlQrCode: string;
   formaPagamento: PaymentMethod;
   detalheCodigo?: string;
+  bico?: string; 
   impostos: {
     federal: string;
     estadual: string;

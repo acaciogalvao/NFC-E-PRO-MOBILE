@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Trash2, Settings2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -41,11 +42,21 @@ const CouponScreen: React.FC = () => {
   const valMunicipal = round2(rawTotal * (pctMunicipal / 100));
   const valTotalTributos = valFederal + valEstadual + valMunicipal;
 
-  let qrCodeData = (isPix && postoData.chavePix) 
-    ? generatePixPayload(postoData.chavePix, postoData.razaoSocial, 'IMPERATRIZ', rawTotal, postoData.tipoChavePix)
-    : generateNfceQrCodeUrl(invoiceData.chaveAcesso, '1');
+  // QR Code só é exibido se a nota foi gerada (tem chave de acesso)
+  // Ou se for PIX (que tem sua própria lógica de exibição dependendo do fluxo)
+  let qrCodeImageUrl = '';
+  if (invoiceData.chaveAcesso) {
+    const qrCodeData = generateNfceQrCodeUrl(invoiceData.chaveAcesso);
+    qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
+  } else if (isPix && postoData.chavePix && rawTotal > 0) {
+    // Caso especial: Se for PIX, podemos querer mostrar o QR Code de pagamento
+    // Mas o usuário pediu "qrcode de todas as notas só depois de gerar", 
+    // então vamos omitir até o NFC-e estar pronto se for essa a intenção restrita.
+    // Se o usuário quiser o PIX antes, descomentar a linha abaixo.
+    // const pixPayload = generatePixPayload(postoData.chavePix, postoData.razaoSocial, 'IMPERATRIZ', rawTotal, postoData.tipoChavePix);
+    // qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixPayload)}`;
+  }
 
-  const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
   const paymentMethodLabel = getPaymentLabel(invoiceData.formaPagamento);
   const calcData = { rawTotal, valTotalTributos, valFederal, valEstadual, valMunicipal, qrCodeImageUrl, paymentMethodLabel, activeFuels };
   const fullData = { posto: postoData, invoice: invoiceData, fuels, calculations: calcData };

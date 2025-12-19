@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { Plus, Trash2, ScanLine, PlusCircle, User, CreditCard, Banknote, QrCode as QrIcon, FileCheck, Calendar, Building2, Fingerprint, Smartphone, Key, Mail, Hash } from 'lucide-react';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, ScanLine, PlusCircle, User, CreditCard, Banknote, QrCode as QrIcon, FileCheck, Calendar, Building2, Fingerprint, Smartphone, Key, Mail, Hash, Check, Copy, Settings2, Lock } from 'lucide-react';
 import { PaymentMethod, FuelItem, PixKeyType } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { moneyToFloat, quantityToFloat, formatMoneyMask, formatQuantityInput, generateNfceAccessKey, generateNfceQrCodeUrl, toCurrency, to3Decimals, parseLocaleNumber, formatCNPJ, formatPixKey } from '../utils/helpers';
+import { moneyToFloat, quantityToFloat, formatMoneyMask, formatQuantityInput, generateNfceAccessKey, generateNfceQrCodeUrl, toCurrency, to3Decimals, parseLocaleNumber, formatCNPJ, formatPixKey, formatCEP } from '../utils/helpers';
 
 interface EditScreenProps {
   onGenerate: () => void;
@@ -16,10 +17,23 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
   } = useAppContext();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pixKeyInputRef = useRef<HTMLInputElement>(null);
   const [awaitingFirstChar, setAwaitingFirstChar] = useState<Record<string, boolean>>({});
 
   const isSpecialPrice = ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
+
+  // Efeito para sincronizar a string técnica #CF com o bico e quantidade atual
+  useEffect(() => {
+    if (fuels.length > 0) {
+      const firstFuel = fuels[0];
+      const qty = firstFuel.quantity || '0,000';
+      const bico = invoiceData.bico || '01'; 
+      const autoGen = `#CF:B${bico.padStart(2, '0')} EI0550800,620 EF0550927,830 V${qty}`;
+      
+      if (invoiceData.detalheCodigo !== autoGen) {
+        setInvoiceData(prev => ({ ...prev, detalheCodigo: autoGen }));
+      }
+    }
+  }, [fuels, invoiceData.bico, setInvoiceData]);
 
   const handleInvoiceChange = (field: string, value: string) => {
     setInvoiceData(prev => ({ ...prev, [field]: value }));
@@ -91,22 +105,35 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
       return;
     }
 
-    const nNota = invoiceData.numero || Math.floor(100000 + Math.random() * 900000).toString();
-    const serie = invoiceData.serie || '001';
-    const dataFormatada = invoiceData.dataEmissao || new Date().toLocaleString('pt-BR');
-    const chaveAcesso = generateNfceAccessKey({ uf: '21', cnpj: postoData.cnpj, serie, numero: nNota, tpEmis: '1', dataEmissao: dataFormatada });
-    const protocolo = invoiceData.protocolo || Math.floor(100000000000000 + Math.random() * 900000000000000).toString();
-    const urlQrCode = generateNfceQrCodeUrl(chaveAcesso, '1');
-
-    setInvoiceData(prev => ({ ...prev, numero: nNota, serie: serie, dataEmissao: dataFormatada, chaveAcesso: chaveAcesso, protocolo: protocolo, urlQrCode: urlQrCode }));
-    showToast("NFC-e Processada!", "success");
-    setTimeout(() => { onGenerate(); }, 150);
+    const nNota = Math.floor(100000 + Math.random() * 900000).toString();
+    // Série agora é gerada automaticamente como '001' se estiver vazia
+    const serieAutomatica = invoiceData.serie || '001';
+    const dataFormatada = new Date().toLocaleString('pt-BR');
+    const chaveAcesso = generateNfceAccessKey({ uf: '21', cnpj: postoData.cnpj, serie: serieAutomatica, numero: nNota, tpEmis: '1', dataEmissao: dataFormatada });
+    const protocolo = Math.floor(100000000000000 + Math.random() * 900000000000000).toString();
+    const urlQrCode = generateNfceQrCodeUrl(chaveAcesso);
+    
+    // GERAÇÃO AUTOMÁTICA DE BICO E SÉRIE
+    const bicoAleatorio = Math.floor(Math.random() * 20 + 1).toString().padStart(2, '0');
+    
+    setInvoiceData(prev => ({ 
+      ...prev, 
+      bico: bicoAleatorio, 
+      serie: serieAutomatica,
+      numero: nNota, 
+      dataEmissao: dataFormatada, 
+      chaveAcesso: chaveAcesso, 
+      protocolo: protocolo, 
+      urlQrCode: urlQrCode
+    }));
+    
+    showToast("Nota Finalizada com Sucesso!", "success");
   };
 
   return (
     <div className="space-y-8 pb-10 animate-reveal">
       <div className="flex items-center justify-between px-2">
-        <h3 className="text-xs font-black text-indigo-500 uppercase tracking-[0.3em]">Painel de Emissão</h3>
+        <h3 className="text-xs font-black text-indigo-500 uppercase tracking-[0.3em]">Emissão de Nota</h3>
         <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-indigo-400 font-bold text-[10px] uppercase">
           <ScanLine size={14} /> Scanner IA
         </button>
@@ -114,6 +141,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
 
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
 
+      {/* Estabelecimento Section */}
       <section className="space-y-4">
         <div className="flex items-center gap-2 px-2">
           <Building2 size={14} className="text-indigo-500" />
@@ -134,46 +162,26 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
                 <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.inscEstadual} onChange={e => handlePostoChange('inscEstadual', e.target.value)} placeholder="ISENTO" />
               </div>
            </div>
+           <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">CEP</label>
+                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.cep} onChange={e => handlePostoChange('cep', formatCEP(e.target.value))} placeholder="00000-000" />
+              </div>
+              <div>
+                <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Telefone</label>
+                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.fone} onChange={e => handlePostoChange('fone', e.target.value)} placeholder="(00) 0000-0000" />
+              </div>
+           </div>
            <div>
               <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Endereço Completo</label>
               <textarea className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50 min-h-[80px]" value={postoData.endereco} onChange={e => handlePostoChange('endereco', e.target.value.toUpperCase())} placeholder="RUA, NÚMERO, BAIRRO, CIDADE-UF" />
            </div>
-
-           <div className="pt-4 border-t border-white/5 space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                 <QrIcon size={14} className="text-emerald-500" />
-                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dados para Recebimento Pix</span>
-              </div>
-              <div className="grid grid-cols-1 gap-3">
-                 <div>
-                    <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Tipo de Chave</label>
-                    <select className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-emerald-500/50 appearance-none" value={postoData.tipoChavePix || 'CNPJ'} onChange={e => { const newType = e.target.value as PixKeyType; setPostoData(prev => ({ ...prev, tipoChavePix: newType, chavePix: '' })); setTimeout(() => pixKeyInputRef.current?.focus(), 150); }}>
-                      <option value="CNPJ" className="bg-slate-900">CNPJ</option>
-                      <option value="CPF" className="bg-slate-900">CPF</option>
-                      <option value="EMAIL" className="bg-slate-900">E-mail</option>
-                      <option value="TELEFONE" className="bg-slate-900">Telefone (Celular)</option>
-                      <option value="ALEATORIA" className="bg-slate-900">Chave Aleatória</option>
-                    </select>
-                 </div>
-                 <div>
-                    <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Chave Pix</label>
-                    <div className="relative">
-                      <input ref={pixKeyInputRef} className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-emerald-500/50 pr-12" value={postoData.chavePix || ''} onChange={e => handlePostoChange('chavePix', formatPixKey(e.target.value, postoData.tipoChavePix || 'CNPJ'))} placeholder={postoData.tipoChavePix === 'EMAIL' ? 'exemplo@email.com' : postoData.tipoChavePix === 'TELEFONE' ? '(00) 00000-0000' : postoData.tipoChavePix === 'CPF' ? '000.000.000-00' : postoData.tipoChavePix === 'CNPJ' ? '00.000.000/0000-00' : 'Cole sua chave aqui'} />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500/50">
-                        {postoData.tipoChavePix === 'EMAIL' && <Mail size={18} />}
-                        {postoData.tipoChavePix === 'TELEFONE' && <Smartphone size={18} />}
-                        {postoData.tipoChavePix === 'ALEATORIA' && <Key size={18} />}
-                        {(postoData.tipoChavePix === 'CPF' || postoData.tipoChavePix === 'CNPJ') && <Fingerprint size={18} />}
-                      </div>
-                    </div>
-                 </div>
-              </div>
-           </div>
         </div>
       </section>
 
+      {/* Identificação Section */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2 px-2"><User size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Veículo e Equipe</h4></div>
+        <div className="flex items-center gap-2 px-2"><User size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Identificação</h4></div>
         <div className="grid grid-cols-2 gap-3">
            <div className="glass-card rounded-2xl p-4"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Placa</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white uppercase" value={invoiceData.placa} onChange={e => handleInvoiceChange('placa', e.target.value.toUpperCase())} placeholder="ABC1D23" /></div>
            <div className="glass-card rounded-2xl p-4"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">KM Atual</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white" value={invoiceData.km} onChange={e => handleInvoiceChange('km', e.target.value)} inputMode="numeric" placeholder="0" /></div>
@@ -182,41 +190,47 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 px-2">
-          <FileCheck size={14} className="text-indigo-500" />
-          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dados Fiscais (Monitoramento)</h4>
-        </div>
-        <div className="glass-card rounded-3xl p-5 border border-white/5 space-y-4 opacity-80">
-           <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1">Nº da Nota</label>
-                 <div className="text-xs font-bold text-white opacity-80">{invoiceData.numero || 'GERADO AO FINALIZAR'}</div>
+      {/* Dados Técnicos Section - GERAÇÃO 100% AUTOMÁTICA (BICO E SÉRIE) */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-2"><Settings2 size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Processamento Fiscal Automático</h4></div>
+        <div className="glass-card rounded-3xl p-6 border border-white/5 space-y-6">
+           <div>
+              <div className="flex items-center justify-between mb-2 ml-2">
+                 <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Configurações Sistêmicas</label>
+                 <div className="flex items-center gap-1 text-[8px] text-emerald-400 font-bold uppercase"><Lock size={10} /> Gerenciamento IA</div>
               </div>
-              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1">Série</label>
-                 <div className="text-xs font-bold text-white opacity-80">{invoiceData.serie || '001'}</div>
+              <div className="w-full bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-5 space-y-4">
+                 <div className="flex flex-col gap-1">
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Identificador da Bomba (Bico)</span>
+                    <div className="text-xs font-bold text-white flex items-center gap-2">
+                       <div className={`w-2 h-2 rounded-full ${invoiceData.bico ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
+                       {invoiceData.bico ? `MEDIDOR ATIVO: ${invoiceData.bico},99` : 'AGUARDANDO LANÇAMENTO'}
+                    </div>
+                 </div>
+                 
+                 <div className="flex flex-col gap-1 border-t border-white/5 pt-3">
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Série Tributária</span>
+                    <div className="text-xs font-bold text-white flex items-center gap-2">
+                       <div className={`w-2 h-2 rounded-full ${invoiceData.serie ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
+                       {invoiceData.serie ? `SÉRIE GERADA: ${invoiceData.serie}` : 'GERAÇÃO DINÂMICA'}
+                    </div>
+                 </div>
+
+                 <div className="flex flex-col gap-1 border-t border-white/5 pt-3">
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Código Estrutural</span>
+                    <div className="text-[10px] font-mono font-bold text-indigo-300 break-all leading-tight opacity-80">
+                       {invoiceData.detalheCodigo || '#CF: AUTO-GEN-ACTIVE'}
+                    </div>
+                 </div>
               </div>
-           </div>
-           <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-                <label className="text-[8px] font-black text-slate-500 uppercase block mb-1">Emissão</label>
-                <div className="text-[10px] font-bold text-white opacity-80 flex items-center gap-2"><Calendar size={12} className="text-indigo-400" />{invoiceData.dataEmissao || 'AGUARDANDO'}</div>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1">Protocolo</label>
-                 <div className="text-[10px] font-bold text-white opacity-80 flex items-center gap-2"><Hash size={12} className="text-indigo-400" />{invoiceData.protocolo || 'PENDENTE'}</div>
-              </div>
-           </div>
-           <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-              <label className="text-[8px] font-black text-slate-500 uppercase block mb-1">Chave de Acesso</label>
-              <div className="text-[9px] font-mono font-bold text-indigo-300 break-all leading-relaxed">{invoiceData.chaveAcesso ? invoiceData.chaveAcesso.replace(/(\d{4})/g, '$1 ') : 'GERADO AUTOMATICAMENTE AO CLICAR EM FINALIZAR'}</div>
+              <p className="text-[8px] text-slate-500 mt-3 ml-2 italic">A série e o bico são atribuídos de forma exclusiva a cada nota no fechamento do cupom.</p>
            </div>
         </div>
       </section>
 
+      {/* Pagamento Section */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2 px-2"><Fingerprint size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Método de Pagamento</h4></div>
+        <div className="flex items-center gap-2 px-2"><Fingerprint size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pagamento</h4></div>
         <div className="bg-indigo-500/5 rounded-[2rem] p-4 border border-indigo-500/10">
           <div className="flex gap-2">
               {[
@@ -234,48 +248,84 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
         </div>
       </section>
 
+      {/* Itens Section */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">
-           <div className="flex items-center gap-2"><PlusCircle size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Itens na Nota</h4></div>
+           <div className="flex items-center gap-2"><PlusCircle size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Produtos</h4></div>
            <button onClick={addFuel} className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1"><Plus size={14} /> Adicionar</button>
         </div>
         {fuels.map((fuel) => {
            const currentProduct = prices.find(p => p.id === fuel.productId);
-           const activePriceStr = (isSpecialPrice && currentProduct?.priceCard && parseFloat(currentProduct.priceCard.replace(/\D/g, '')) > 0) ? currentProduct.priceCard : (currentProduct?.price || fuel.unitPrice);
+           const activePriceStr = (isSpecialPrice && currentProduct?.priceCard && parseLocaleNumber(currentProduct.priceCard) > 0) ? currentProduct.priceCard : (currentProduct?.price || fuel.unitPrice);
            return (
-             <div key={fuel.id} className="glass-card rounded-3xl p-5 border border-white/5 space-y-4 transition-all">
+             <div key={fuel.id} className="glass-card rounded-3xl p-5 border border-white/5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                    <select className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500/50" value={fuel.productId || ''} onChange={(e) => { const sel = prices.find(p => p.id === e.target.value); if (sel) { setFuels(fuels.map(f => f.id === fuel.id ? { ...f, productId: sel.id, name: sel.name, unitPrice: sel.price, unitPriceCard: sel.priceCard, code: sel.code, total: toCurrency(quantityToFloat(f.quantity) * parseLocaleNumber(isSpecialPrice && sel.priceCard && parseLocaleNumber(sel.priceCard) > 0 ? sel.priceCard : sel.price)) } : f)); } }}>
                       <option value="" className="bg-slate-900">Selecione o Produto</option>
                       {prices.map(p => (<option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>))}
                    </select>
-                   <button onClick={() => setFuels(fuels.filter(f => f.id !== fuel.id))} className="p-2 text-rose-500 hover:scale-110 transition-transform"><Trash2 size={18} /></button>
+                   <button onClick={() => setFuels(fuels.filter(f => f.id !== fuel.id))} className="p-2 text-rose-500 active:scale-90 transition-transform"><Trash2 size={18} /></button>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                    <div className="relative">
-                      <label className="text-[7px] font-black text-slate-500 uppercase block mb-1">Qtd ({fuel.unit})</label>
-                      <input className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm font-black text-white outline-none focus:border-indigo-500 transition-all" value={fuel.quantity} onFocus={() => setAwaitingFirstChar(prev => ({ ...prev, [`${fuel.id}-qty`]: true }))} onChange={(e) => handleInputChange(fuel.id, 'qty', e.target.value)} inputMode="numeric" placeholder="0,000" />
+                      <label className="text-[7px] font-black text-slate-500 uppercase block mb-1">Qtd</label>
+                      <input className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm font-black text-white outline-none focus:border-indigo-500" value={fuel.quantity} onFocus={() => setAwaitingFirstChar(prev => ({ ...prev, [`${fuel.id}-qty`]: true }))} onChange={(e) => handleInputChange(fuel.id, 'qty', e.target.value)} inputMode="numeric" placeholder="0,000" />
                    </div>
                    <div>
                       <label className="text-[7px] font-black text-slate-500 uppercase block mb-1">Unitário</label>
-                      <div className="text-xs font-bold text-indigo-400 p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 truncate">R$ {activePriceStr}</div>
+                      <div className="text-[10px] font-bold text-indigo-400 p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 truncate">R$ {activePriceStr}</div>
                    </div>
                    <div>
-                      <label className="text-[7px] font-black text-emerald-400 uppercase block mb-1">Total Item</label>
-                      <input className="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-sm font-black text-emerald-400 outline-none focus:border-emerald-500 transition-all" value={fuel.total} onFocus={() => setAwaitingFirstChar(prev => ({ ...prev, [`${fuel.id}-total`]: true }))} onChange={(e) => handleInputChange(fuel.id, 'total', e.target.value)} inputMode="numeric" placeholder="0,00" />
+                      <label className="text-[7px] font-black text-emerald-400 uppercase block mb-1">Total</label>
+                      <input className="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-sm font-black text-emerald-400 outline-none focus:border-emerald-500" value={fuel.total} onFocus={() => setAwaitingFirstChar(prev => ({ ...prev, [`${fuel.id}-total`]: true }))} onChange={(e) => handleInputChange(fuel.id, 'total', e.target.value)} inputMode="numeric" placeholder="0,00" />
                    </div>
                 </div>
              </div>
            );
         })}
       </section>
-      <button onClick={handleFinalize} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 py-5 rounded-[2.5rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 tracking-[0.1em] transition-transform active:scale-95"><Zap size={20} fill="currentColor" /> FINALIZAR E VER NOTA</button>
+      
+      <div className="space-y-4">
+        <button onClick={handleFinalize} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 py-6 rounded-[2.5rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 tracking-[0.1em] transition-transform active:scale-95">
+          <FileCheck size={20} /> FINALIZAR LANÇAMENTO
+        </button>
+
+        {invoiceData.chaveAcesso && (
+          <div className="glass-card rounded-[2.5rem] p-6 border border-indigo-500/30 bg-indigo-500/5 animate-reveal space-y-4">
+             <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em]">Dados Fiscais Gerados</h4>
+                <div className="flex gap-2">
+                   <button onClick={() => { navigator.clipboard.writeText(invoiceData.chaveAcesso); showToast("Chave Copiada!", "success"); }} className="p-2 bg-white/5 rounded-xl text-indigo-400"><Copy size={14}/></button>
+                   <button onClick={onGenerate} className="p-2 bg-indigo-500 text-white rounded-xl"><QrIcon size={14}/></button>
+                </div>
+             </div>
+             
+             <div className="space-y-3 text-xs">
+                <div className="flex flex-col gap-1 border-b border-white/5 pb-2">
+                   <span className="text-slate-500 font-black uppercase text-[8px] tracking-widest">Chave de Acesso</span>
+                   <span className="text-white font-mono text-[10px] break-all leading-tight">{invoiceData.chaveAcesso.replace(/(\d{4})/g, '$1 ')}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 font-black uppercase text-[8px] tracking-widest">Nº / Série Automática</span>
+                      <span className="text-white font-bold">{invoiceData.numero} / {invoiceData.serie}</span>
+                   </div>
+                   <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 font-black uppercase text-[8px] tracking-widest">Bico Aleatório</span>
+                      <span className="text-white font-bold truncate">MED:{invoiceData.bico},99</span>
+                   </div>
+                </div>
+             </div>
+
+             <div className="text-center">
+                <button onClick={onGenerate} className="text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Nota Completa →</button>
+             </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
-
-const Zap = ({ size, fill }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-);
 
 export default EditScreen;

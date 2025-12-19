@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { TabId } from './types';
 import TabBar from './components/layout/TabBar';
@@ -17,7 +18,8 @@ const AppLayout: React.FC = () => {
     selectedModelId, savedModels, 
     handleSaveModel, isSaving, 
     handleNewModel, handleRenameModel, handleDeleteModel, handleLoadModel, handleImportBackup,
-    invoiceData
+    invoiceData,
+    showToast
   } = useAppContext();
 
   const [activeTab, setActiveTab] = useState<TabId>('EDITAR');
@@ -30,6 +32,10 @@ const AppLayout: React.FC = () => {
   } = useAppActions();
 
   const handlePrint = () => {
+    if (activeTab !== 'NOTA' && activeTab !== 'CUPOM') {
+      showToast("Acesse a aba 'NFC-e' ou 'Cupom' para imprimir o documento.", "info");
+      return;
+    }
     window.print();
   };
 

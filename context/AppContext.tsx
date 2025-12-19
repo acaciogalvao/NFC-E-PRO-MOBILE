@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { BLANK_INVOICE, BLANK_POSTO } from '../utils/constants';
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,00', estadual: '0,00', municipal: '0,00' };
+const LOCAL_STORAGE_DRAFT_KEY = 'nfce_pro_active_draft_v1';
 
 interface AppContextData {
   postoData: PostoData;
@@ -30,6 +31,7 @@ interface AppContextData {
   handleResetAll: () => void;
   handleImportBackup: (models: SavedModel[], layouts?: LayoutConfig[]) => void;
   handleDeleteLayout: (id: string) => void;
+  handleSaveLayout: (layout: LayoutConfig) => void;
   handleUpdateTaxRates: (newRates: TaxRates) => void;
   handleSyncFromCloud: () => Promise<void>;
   isSaving: boolean;
@@ -57,6 +59,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isInitialMount = useRef(true);
 
+  // Carregamento inicial de dados
   useEffect(() => {
     const init = async () => {
       const localModels = db.getAllModels();
@@ -64,11 +67,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setSavedModels(localModels);
       setCustomLayouts(layouts);
 
-      const lastId = db.getLastActiveId();
-      if (lastId && localModels.find(m => m.id === lastId)) {
-        handleLoadModel(lastId);
-      } else if (localModels.length > 0) {
-        handleLoadModel(localModels[0].id);
+      // Tenta carregar rascunho não salvo primeiro
+      const savedDraft = localStorage.getItem(LOCAL_STORAGE_DRAFT_KEY);
+      if (savedDraft) {
+        try {
+          const draft = JSON.parse(savedDraft);
+          setPostoData(draft.postoData);
+          setInvoiceData(draft.invoiceData);
+          setFuels(draft.fuels);
+          setPrices(draft.prices);
+          setTaxRates(draft.taxRates);
+          setSelectedModelId(draft.selectedModelId || '');
+        } catch (e) {
+          console.error("Erro ao carregar rascunho persistido", e);
+        }
+      } else {
+        const lastId = db.getLastActiveId();
+        if (lastId && localModels.find(m => m.id === lastId)) {
+          handleLoadModel(lastId);
+        } else if (localModels.length > 0) {
+          handleLoadModel(localModels[0].id);
+        }
       }
 
       await handleSyncFromCloud(true);
@@ -79,6 +98,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isInitialMount.current = false;
     }
   }, []);
+
+  // Efeito de persistência automática do rascunho
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      const draft = { postoData, invoiceData, fuels, prices, taxRates, selectedModelId };
+      localStorage.setItem(LOCAL_STORAGE_DRAFT_KEY, JSON.stringify(draft));
+    }
+  }, [postoData, invoiceData, fuels, prices, taxRates, selectedModelId]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -135,13 +162,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         fuels
       };
 
-      // Tenta salvar na nuvem primeiro
       const savedInCloud = await api.saveModel(modelToSave);
-      
-      // Se salvou na nuvem, usamos o objeto retornado (que tem o ID definitivo do MongoDB)
       const finalModel = savedInCloud || modelToSave;
 
-      // Se o ID mudou (de temporário para definitivo), removemos o rascunho antigo
       if (selectedModelId && selectedModelId !== finalModel.id) {
         db.deleteModel(selectedModelId);
       }
@@ -179,6 +202,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setFuels([]);
     setPrices([]);
     setTaxRates(DEFAULT_TAX_RATES);
+    localStorage.removeItem(LOCAL_STORAGE_DRAFT_KEY);
     showToast("Novo rascunho iniciado", "info");
   };
 
@@ -208,6 +232,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const handleResetAll = () => {
     const defaults = db.resetModels();
     setSavedModels(defaults);
+    localStorage.removeItem(LOCAL_STORAGE_DRAFT_KEY);
     handleLoadModel(defaults[0].id);
     showToast("Configurações padrão restauradas.", "success");
   };
@@ -226,6 +251,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
      const newLayouts = customLayouts.filter(l => l.id !== id);
      db.saveLayouts(newLayouts);
      setCustomLayouts(newLayouts);
+     showToast("Layout removido.", "info");
+  };
+
+  const handleSaveLayout = (layout: LayoutConfig) => {
+    const index = customLayouts.findIndex(l => l.id === layout.id);
+    let newLayouts;
+    if (index >= 0) {
+      newLayouts = [...customLayouts];
+      newLayouts[index] = layout;
+    } else {
+      newLayouts = [layout, ...customLayouts];
+    }
+    db.saveLayouts(newLayouts);
+    setCustomLayouts(newLayouts);
+    showToast("Estilo de impressão salvo!", "success");
   };
 
   const handleUpdateTaxRates = (rates: TaxRates) => {
@@ -242,7 +282,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       savedModels, customLayouts,
       selectedModelId, setSelectedModelId,
       handleLoadModel, handleSaveModel, handleDeleteModel,
-      handleRenameModel, handleNewModel, handleResetAll, handleImportBackup, handleDeleteLayout, handleUpdateTaxRates,
+      handleRenameModel, handleNewModel, handleResetAll, handleImportBackup, handleDeleteLayout, handleSaveLayout, handleUpdateTaxRates,
       handleSyncFromCloud,
       isSaving, isSyncing, notifications, showToast
     }}>

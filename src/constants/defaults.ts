@@ -43,6 +43,10 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showConsumer: true,
     showQrCode: true,
     showFooter: true,
+    // Fix: Added missing properties required by LayoutConfig type
+    showSeparatorLines: true,
+    upperCaseAll: true,
+    lineSpacing: 'TIGHT',
     density: 'COMPACT',
     customTexts: {
       headerTitle: 'DANFE NFC-e - Documento Auxiliar de Nota Fiscal\nde Consumidor Eletrônica',
@@ -64,6 +68,10 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showConsumer: true,
     showQrCode: true,
     showFooter: true,
+    // Fix: Added missing properties required by LayoutConfig type
+    showSeparatorLines: true,
+    upperCaseAll: true,
+    lineSpacing: 'NORMAL',
     density: 'COMPACT',
     customTexts: {
       headerTitle: 'Documento Auxiliar\nda Nota Fiscal de Consumidor Eletrônica',
@@ -85,6 +93,10 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showConsumer: true,
     showQrCode: true,
     showFooter: true,
+    // Fix: Added missing properties required by LayoutConfig type
+    showSeparatorLines: true,
+    upperCaseAll: true,
+    lineSpacing: 'TIGHT',
     density: 'COMPACT',
     customTexts: {
       headerTitle: 'Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica',

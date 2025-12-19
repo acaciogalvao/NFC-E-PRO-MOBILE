@@ -1,3 +1,4 @@
+
 import { SavedModel, LayoutConfig } from '../types';
 import { 
   LOCAL_STORAGE_KEY_MODELS, 
@@ -12,23 +13,34 @@ import {
 class StorageService {
   /**
    * Obtém todos os modelos do localStorage.
-   * Prioriza dados salvos; apenas retorna os padrões do código se o storage estiver limpo.
+   * Se os modelos padrão estiverem desatualizados, faz o patch do CEP.
    */
   getAllModels(): SavedModel[] {
     try {
       const item = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS);
+      let models: SavedModel[] = [];
+
       if (item) {
-        const parsed = JSON.parse(item);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        models = JSON.parse(item);
       }
       
-      // Se não houver dados, inicializa com os padrões
-      const defaults = [ICCAR_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ALMEIDA_DEFAULT_MODEL];
-      this.saveModels(defaults);
-      return defaults;
+      if (!Array.isArray(models) || models.length === 0) {
+        models = [ALMEIDA_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
+        this.saveModels(models);
+        return models;
+      }
+
+      // Patch de segurança: Garante que o modelo Almeida tenha o CEP mesmo se já estiver no storage
+      const almeidaIndex = models.findIndex(m => m.id === 'almeida_modelo_fixo');
+      if (almeidaIndex !== -1 && !models[almeidaIndex].postoData.cep) {
+        models[almeidaIndex].postoData.cep = ALMEIDA_DEFAULT_MODEL.postoData.cep;
+        this.saveModels(models);
+      }
+      
+      return models;
     } catch (error) {
       console.error("Erro crítico ao ler modelos do storage local:", error);
-      return [ICCAR_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ALMEIDA_DEFAULT_MODEL];
+      return [ALMEIDA_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
     }
   }
 
@@ -52,10 +64,6 @@ class StorageService {
     return newModels;
   }
 
-  /**
-   * Salva ou atualiza um modelo. 
-   * Mantém a integridade do banco local substituindo apenas o item correspondente pelo ID.
-   */
   saveOrUpdateModel(model: SavedModel): SavedModel[] {
     const models = this.getAllModels();
     const index = models.findIndex(m => m.id === model.id);
@@ -66,15 +74,12 @@ class StorageService {
     if (index >= 0) {
       newModels[index] = modelToSave;
     } else {
-      // Adiciona novos modelos ao topo da lista
       newModels = [modelToSave, ...newModels];
     }
     
     this.saveModels(newModels);
     return newModels;
   }
-
-  // --- PERSISTÊNCIA DE SESSÃO ---
 
   saveLastActiveId(id: string): void {
     if (!id) return;
@@ -85,16 +90,11 @@ class StorageService {
     return localStorage.getItem(LOCAL_STORAGE_KEY_ACTIVE_ID);
   }
 
-  /**
-   * Restaura o banco de dados local para o estado original do sistema.
-   */
   resetModels(): SavedModel[] {
-    const defaults = [ICCAR_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ALMEIDA_DEFAULT_MODEL];
+    const defaults = [ALMEIDA_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ICCAR_DEFAULT_MODEL];
     this.saveModels(defaults);
     return defaults;
   }
-
-  // --- LAYOUTS (VISUAL) ---
 
   getAllLayouts(): LayoutConfig[] {
     try {

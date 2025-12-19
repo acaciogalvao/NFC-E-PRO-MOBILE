@@ -80,8 +80,47 @@
       .no-scrollbar::-webkit-scrollbar { display: none; }
       
       @media print {
-        header, nav, .no-print { display: none !important; }
-        body { background: white !important; color: black !important; }
+        @page {
+          margin: 0;
+          size: auto;
+        }
+        
+        /* Reset Global */
+        html, body {
+          background-color: white !important;
+          height: auto !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: visible !important;
+        }
+
+        /* Ocultar tudo */
+        body * {
+          visibility: hidden;
+        }
+
+        /* Exibir apenas o conteúdo de impressão */
+        #printable-receipt, #printable-receipt * {
+          visibility: visible !important;
+        }
+
+        #printable-receipt {
+          position: absolute !important;
+          left: 50% !important;
+          top: 0 !important;
+          transform: translateX(-50%) !important;
+          width: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+          background-color: transparent !important;
+          border: none !important;
+        }
+
+        header, nav, button, .no-print, [role="dialog"], .fixed, .sticky {
+          display: none !important;
+        }
       }
     </style>
   <script type="importmap">

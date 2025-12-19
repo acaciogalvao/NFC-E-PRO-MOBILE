@@ -1,14 +1,16 @@
+
 import { SavedModel, PostoData, InvoiceData, LayoutConfig } from '../types';
 
-// --- CONSTANTES ---
 export const LOCAL_STORAGE_KEY_LAYOUTS = 'nfce_pro_layouts_v4'; 
 export const LOCAL_STORAGE_KEY_MODELS = 'nfce_models_db_v1';
+export const LOCAL_STORAGE_KEY_ACTIVE_ID = 'nfce_pro_active_id_v1';
 
 export const BLANK_POSTO: PostoData = {
   razaoSocial: '',
   cnpj: '',
   inscEstadual: '',
   endereco: '',
+  cep: '',
   fone: '',
   activeLayoutId: 'padrao_iccar',
   chavePix: '',
@@ -28,7 +30,8 @@ export const BLANK_INVOICE: InvoiceData = {
   urlQrCode: '',
   formaPagamento: 'DINHEIRO',
   impostos: { federal: '0,00', estadual: '0,00', municipal: '0,00' },
-  detalheCodigo: ''
+  detalheCodigo: '',
+  bico: '' // Inicia vazio
 };
 
 export const DEFAULT_LAYOUTS: LayoutConfig[] = [
@@ -44,13 +47,17 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showConsumer: true,
     showQrCode: true,
     showFooter: true,
+    showSeparatorLines: true,
+    upperCaseAll: true,
+    lineSpacing: 'TIGHT',
     density: 'COMPACT',
     customTexts: {
       headerTitle: 'DANFE NFC-e - Documento Auxiliar da Nota Fiscal\nde Consumidor Eletrônica',
       subHeader: 'NFC-e não permite aproveitamento de crédito de ICMS',
       taxLabel: 'Informações Adicionais de Interesse do Contribuinte',
       consumerLabel: 'Consumidor não identificado',
-      footerMessage: 'Consulte pela Chave de Acesso em:'
+      footerMessage: 'Consulte pela Chave de Acesso em:',
+      extraNotes: ''
     }
   },
   {
@@ -65,13 +72,17 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showConsumer: true,
     showQrCode: true,
     showFooter: true,
+    showSeparatorLines: true,
+    upperCaseAll: true,
+    lineSpacing: 'NORMAL',
     density: 'COMPACT',
     customTexts: {
-      headerTitle: 'Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica',
+      headerTitle: 'Documento Auxiliar\nda Nota Fiscal de Consumidor Eletrônica',
       subHeader: '',
       taxLabel: '',
       consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
-      footerMessage: 'Consulte pela Chave de Acesso em\nhttp://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp'
+      footerMessage: 'Consulte pela Chave de Acesso em\nhttp://nfce.sefaz.ma.gov.br/portal/consultarNFCe.jsp',
+      extraNotes: 'Adaptive Business - 3.23.02.15 - www.adaptive.com.br'
     }
   },
   {
@@ -86,13 +97,17 @@ export const DEFAULT_LAYOUTS: LayoutConfig[] = [
     showConsumer: true,
     showQrCode: true,
     showFooter: true,
+    showSeparatorLines: true,
+    upperCaseAll: true,
+    lineSpacing: 'TIGHT',
     density: 'COMPACT',
     customTexts: {
       headerTitle: 'Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica',
       subHeader: '',
       taxLabel: 'ICMS monofásico sobre combustíveis cobrado anteriormente conforme Convênio ICMS 126/2024.',
       consumerLabel: 'CONSUMIDOR NÃO IDENTIFICADO',
-      footerMessage: 'webPostoPDV'
+      footerMessage: 'webPostoPDV',
+      extraNotes: ''
     }
   }
 ];
@@ -106,21 +121,19 @@ export const ICCAR_DEFAULT_MODEL: SavedModel = {
     cnpj: '02.280.133/0047-77',
     inscEstadual: '124846041',
     endereco: 'ROD BR 010, 25\nJARDIM TROPICAL, IMPERATRIZ - MA',
-    fone: '(99) 3524-1111', 
+    cep: '65900-000',
+    fone: "",
     activeLayoutId: 'padrao_iccar',
     chavePix: '02.280.133/0047-77',
     tipoChavePix: 'CNPJ'
   },
   taxRates: { federal: '5,82', estadual: '20,32', municipal: '0,00' },
   prices: [
-    { id: '1', code: '1', name: 'BS10 DIESEL BS10', unit: 'L', price: '5,510', priceCard: '5,510' },
-    { id: '2', code: '2', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,890', priceCard: '5,890' },
+    { id: '1', code: 'BS10', name: 'DIESEL S10', unit: 'L', price: '5,510', priceCard: '6,000' },
+    { id: '2', code: 'BGC', name: 'GASOLINA ADITIVADA', unit: 'L', price: '5,890', priceCard: '5,890' },
   ],
   invoiceData: { 
     ...BLANK_INVOICE, 
-    numero: '000045123',
-    serie: '001',
-    dataEmissao: new Date().toLocaleString('pt-BR'),
     impostos: { federal: '5,82', estadual: '20,32', municipal: '0,00' } 
   },
   fuels: []
@@ -133,9 +146,10 @@ export const GUIMARAES_DEFAULT_MODEL: SavedModel = {
   postoData: {
     razaoSocial: 'AUTO POSTO GUIMARAES LTDA',
     cnpj: '02.855.790/0001-12',
-    inscEstadual: '121000000', 
+    inscEstadual: '', 
     endereco: 'BR 010, SN - KM 1350 - MARANHÃO NOVO\nIMPERATRIZ - MA',
-    fone: '(99) 99111-2222', 
+    cep: '65900-000',
+    fone: '', 
     activeLayoutId: 'modelo_guimaraes',
     chavePix: '',
     tipoChavePix: 'CNPJ'
@@ -156,10 +170,11 @@ export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
   name: 'POSTO ALMEIDA 2',
   updatedAt: new Date().toISOString(),
   postoData: {
-    razaoSocial: 'POSTO ALMEIDA 2',
+    razaoSocial: 'ANTONIO DE ALMEIDA CHAVES-ME',
     cnpj: '10.254.688/0002-70',
-    inscEstadual: '122047940',
-    endereco: 'RODOVIA BR226, 0 - TRIZIDELA\nBARRA DO CORDA - MA',
+    inscEstadual: '122047940', 
+    endereco: 'RODOVIA BR226, 0 - TRIZIDELA',
+    cep: '65950-000',
     fone: '(99) 8511-4995', 
     activeLayoutId: 'modelo_almeida',
     chavePix: '',
@@ -171,6 +186,7 @@ export const ALMEIDA_DEFAULT_MODEL: SavedModel = {
   ],
   invoiceData: {
     ...BLANK_INVOICE,
+    bico: '', // Inicia totalmente vazio
     impostos: { federal: '9,50', estadual: '20,10', municipal: '0,00' }
   },
   fuels: []

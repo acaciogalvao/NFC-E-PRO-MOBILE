@@ -2,7 +2,7 @@
 import React from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { parseLocaleNumber, toCurrency, to3Decimals, generatePixPayload, generateNfceQrCodeUrl } from '../utils/helpers';
+import { parseLocaleNumber, toCurrency, to3Decimals, generatePixPayload, generateNfceQrCodeUrl, NFCE_PORTAL_URL } from '../utils/helpers';
 import { ReceiptData } from '../types';
 
 const DanfeReceipt: React.FC<{ data: ReceiptData }> = ({ data }) => {
@@ -84,12 +84,20 @@ const DanfeReceipt: React.FC<{ data: ReceiptData }> = ({ data }) => {
                <p><span className="font-bold">Trib Totais:</span> Federal R$ {toCurrency(valFederal)} | Estadual R$ {toCurrency(valEstadual)}.</p>
                <p><span className="font-bold">Pagamento:</span> {invoice.formaPagamento} | <span className="font-bold">Placa:</span> {invoice.placa || '---'} | <span className="font-bold">KM:</span> {invoice.km || '---'}</p>
                <p><span className="font-bold">Motorista:</span> {invoice.motorista || '---'} | <span className="font-bold">Operador:</span> {invoice.operador || '---'}</p>
-               <p><span className="font-bold">Consulta SEFAZ:</span> http://www.sefaz.ma.gov.br/nfce/consulta</p>
+               <p><span className="font-bold">Consulta SEFAZ:</span> {NFCE_PORTAL_URL}</p>
             </div>
          </div>
          <div className="col-span-4 border border-black p-2 flex flex-col items-center justify-center bg-gray-50">
-            {qrCodeImageUrl && <img src={qrCodeImageUrl} alt="QR Code" className="w-28 h-28 mb-1" />}
-            <span className="text-[7px] font-bold">CONSULTE PELO QR CODE</span>
+            {qrCodeImageUrl ? (
+              <>
+                <img src={qrCodeImageUrl} alt="QR Code" className="w-28 h-28 mb-1" />
+                <span className="text-[7px] font-bold text-center">CONSULTE PELO QR CODE</span>
+              </>
+            ) : (
+              <div className="w-28 h-28 border border-dashed border-gray-300 flex items-center justify-center text-[7px] font-bold text-gray-300 text-center uppercase p-2">
+                QR Code disponível após finalizar
+              </div>
+            )}
          </div>
       </div>
     </div>
@@ -113,11 +121,10 @@ const NoteScreen: React.FC = () => {
   const valFederal = rawTotal * (pctFederal / 100);
   const valEstadual = rawTotal * (pctEstadual / 100);
 
-  let qrCodeData = (invoiceData.formaPagamento === 'PIX' && postoData.chavePix) 
-    ? generatePixPayload(postoData.chavePix, postoData.razaoSocial, 'IMPERATRIZ', rawTotal, postoData.tipoChavePix!)
-    : generateNfceQrCodeUrl(invoiceData.chaveAcesso, '1');
-
-  const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
+  // QR Code só é gerado se houver chave de acesso (nota finalizada)
+  const qrCodeImageUrl = invoiceData.chaveAcesso 
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(generateNfceQrCodeUrl(invoiceData.chaveAcesso))}`
+    : '';
   
   const fullData: ReceiptData = { 
     posto: postoData, 

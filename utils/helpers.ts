@@ -14,7 +14,7 @@ export const to3Decimals = (val: number) => val.toLocaleString('pt-BR', { minimu
 
 export const round2 = (num: number) => Math.round(num * 100) / 100;
 
-export const NFCE_PORTAL_URL = 'http://www.sefaz.ma.gov.br/nfce/consulta';
+export const NFCE_PORTAL_URL = 'http://www.nfce.sefaz.ma.gov.br/portal/consultaNFe.do?method=preFilterCupom';
 
 export const formatCNPJ = (v: string) => {
   v = v.replace(/\D/g, "");
@@ -31,6 +31,12 @@ export const formatCPF = (v: string) => {
   if (v.length <= 6) return v.replace(/^(\d{3})(\d+)/, "$1.$2");
   if (v.length <= 9) return v.replace(/^(\d{3})(\d{3})(\d+)/, "$1.$2.$3");
   return v.replace(/^(\d{3})(\d{3})(\d{3})(\d+)/, "$1.$2.$3-$4").slice(0, 14);
+};
+
+export const formatCEP = (v: string) => {
+  v = v.replace(/\D/g, "");
+  if (v.length <= 5) return v;
+  return v.replace(/^(\d{5})(\d+)/, "$1-$2").slice(0, 9);
 };
 
 export const formatPhone = (v: string) => {
@@ -84,40 +90,31 @@ export const generateNfceAccessKey = (data: any) => {
 };
 
 export const generateNfceQrCodeUrl = (
-  chave: string, 
-  ambiente: string = '1', 
-  uf: string = 'ma', 
-  versao: string = '2', 
-  csc: string = '1'
+  chave: string
 ) => {
   const cleanChave = chave.replace(/\s/g, '');
-  return `https://www.sefaz.${uf.toLowerCase()}.gov.br/nfce/consulta?p=${cleanChave}|${versao}|${ambiente}|${csc}`;
+  return `http://www.nfce.sefaz.ma.gov.br/portal/consultaNFe.do?method=preFilterCupom&chave=${cleanChave}`;
 };
 
 /**
  * GERAÇÃO DE PAYLOAD PIX PROFISSIONAL (BRCODE)
  */
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, type: string) => {
-  // 1. Limpeza e Formatação da Chave por Tipo
   let cleanKey = '';
   if (type === 'TELEFONE') {
-    // Para telefone, o padrão Pix EXIGE o sinal '+' e o código do país '55'
     cleanKey = key.replace(/\D/g, '');
     if (!cleanKey.startsWith('55')) {
       cleanKey = '55' + cleanKey;
     }
     cleanKey = '+' + cleanKey; 
   } else if (type === 'CNPJ' || type === 'CPF') {
-    // CPF e CNPJ devem ser APENAS números no payload
     cleanKey = key.replace(/\D/g, '');
   } else if (type === 'EMAIL') {
     cleanKey = key.toLowerCase().trim();
   } else {
-    // Chave Aleatória ou outros
     cleanKey = key.trim();
   }
 
-  // 2. Sanitização de Nome e Cidade (Apenas caracteres ASCII permitidos no padrão EMV)
   const sanitize = (s: string) => s
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -128,33 +125,30 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
   const finalName = sanitize(name || 'ESTABELECIMENTO').slice(0, 25);
   const finalCity = sanitize(city || 'CIDADE').slice(0, 15);
 
-  // Auxiliar para formatar campos EMV (ID + TAMANHO + VALOR)
   const f = (id: string, val: string) => {
     const len = val.length.toString().padStart(2, '0');
     return `${id}${len}${val}`;
   };
 
-  // 3. Montagem dos Blocos de Dados
   const merchantAccountInfo = f('00', 'br.gov.bcb.pix') + f('01', cleanKey);
 
-  let payload = '000201'; // Payload Format Indicator
-  payload += '010211';   // Point of Initiation Method (11 = Estático)
-  payload += f('26', merchantAccountInfo); // Merchant Account Info
-  payload += '52040000'; // Merchant Category Code
-  payload += '5303986';  // Currency (BRL)
+  let payload = '000201'; 
+  payload += '010211';   
+  payload += f('26', merchantAccountInfo); 
+  payload += '52040000'; 
+  payload += '5303986';  
   
   if (amount > 0) {
-    payload += f('54', amount.toFixed(2)); // Transaction Amount
+    payload += f('54', amount.toFixed(2)); 
   }
   
-  payload += '5802BR'; // Country Code
-  payload += f('59', finalName); // Merchant Name
-  payload += f('60', finalCity); // Merchant City
-  payload += f('62', f('05', '***')); // Additional Data (TXID ***)
+  payload += '5802BR'; 
+  payload += f('59', finalName); 
+  payload += f('60', finalCity); 
+  payload += f('62', f('05', '***')); 
   
-  payload += '6304'; // CRC16 Identifier
+  payload += '6304'; 
 
-  // 4. Cálculo do CRC16 CCITT (Polinômio 0x1021, Init 0xFFFF)
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
