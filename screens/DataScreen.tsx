@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Trash2, Download, Upload, HardDrive, Edit3, ArrowUpRight, FolderOpen, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Database, Trash2, Download, Upload, HardDrive, Edit3, ArrowUpRight, FolderOpen, AlertTriangle, ShieldCheck, Cloud, RefreshCw, Loader2 } from 'lucide-react';
 import { SavedModel, LayoutConfig } from '../types';
 import { LOCAL_STORAGE_KEY_MODELS, LOCAL_STORAGE_KEY_LAYOUTS } from '../utils/constants';
+import { useAppContext } from '../context/AppContext';
 
 interface DataScreenProps {
   onRefresh: () => void;
@@ -14,6 +15,7 @@ interface DataScreenProps {
 }
 
 const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onRenameModel, onLoadModel, onClearAllData, onImportBackup }) => {
+  const { handleSyncFromCloud, isSyncing } = useAppContext();
   const [dbSize, setDbSize] = useState<string>('0 KB');
 
   useEffect(() => {
@@ -58,15 +60,40 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
         <h3 className="text-xs font-black text-indigo-500 uppercase tracking-[0.3em]">Gestão de Dados</h3>
         <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-1 rounded-lg">
           <ShieldCheck size={12} className="text-emerald-500" />
-          <span className="text-[9px] font-black text-emerald-500 uppercase">Local Secure</span>
+          <span className="text-[9px] font-black text-emerald-500 uppercase">Híbrido (Local/Cloud)</span>
         </div>
+      </div>
+
+      {/* Cloud Sync Section */}
+      <div className="glass-card rounded-[2rem] p-6 border border-indigo-500/20 bg-indigo-500/5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+             <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400">
+                <Cloud size={20} />
+             </div>
+             <div>
+                <h4 className="text-xs font-black dark:text-white uppercase tracking-widest">Sincronização na Nuvem</h4>
+                <p className="text-[9px] font-bold text-slate-500 uppercase">MongoDB Atlas</p>
+             </div>
+          </div>
+          <button 
+            onClick={() => handleSyncFromCloud()} 
+            disabled={isSyncing}
+            className={`p-3 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-500/20 active:scale-90 transition-all ${isSyncing ? 'opacity-50' : ''}`}
+          >
+            {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-400 font-bold uppercase leading-relaxed">
+          Recupere modelos excluídos ou sincronize alterações entre dispositivos. Todos os dados são guardados de forma segura na sua base de dados externa.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="glass-card rounded-3xl p-5 shadow-lg border border-white/5">
            <div className="flex items-center gap-2 text-slate-500 mb-2">
              <HardDrive size={14} />
-             <span className="text-[9px] font-black uppercase tracking-widest">Cache</span>
+             <span className="text-[9px] font-black uppercase tracking-widest">Cache Local</span>
            </div>
            <div className="text-2xl font-black dark:text-white tracking-tight">{dbSize}</div>
         </div>
@@ -86,12 +113,16 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
         </div>
         <div className="divide-y divide-white/5">
            {savedModels.length === 0 ? (
-             <div className="p-10 text-center opacity-30">Vazio</div>
+             <div className="p-10 text-center opacity-30 flex flex-col items-center gap-3">
+               <Database size={32} />
+               <p className="text-[10px] font-black uppercase tracking-widest">Vazio</p>
+               <button onClick={() => handleSyncFromCloud()} className="text-indigo-400 text-[9px] font-bold underline">RECUPERAR DA NUVEM</button>
+             </div>
            ) : (
              savedModels.map(model => (
                <div key={model.id} className="p-5 flex items-center justify-between group hover:bg-white/5 transition-colors">
                   <div className="flex-1 overflow-hidden">
-                     <div className="font-bold text-sm dark:text-white truncate mb-0.5">{model.name}</div>
+                     <div className="font-bold text-sm dark:text-white truncate mb-0.5 uppercase">{model.name}</div>
                      <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
                         {new Date(model.updatedAt).toLocaleDateString()} • {new Date(model.updatedAt).toLocaleTimeString().slice(0,5)}
                      </div>
@@ -113,8 +144,8 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
             <Download size={22} />
           </div>
           <div className="text-left">
-            <div className="font-black text-xs dark:text-white uppercase tracking-widest">Backup Global</div>
-            <div className="text-[10px] text-slate-500 font-bold">Exportar tudo para JSON</div>
+            <div className="font-black text-xs dark:text-white uppercase tracking-widest">Backup em Arquivo</div>
+            <div className="text-[10px] text-slate-500 font-bold">Exportar biblioteca para JSON</div>
           </div>
         </button>
 
@@ -123,8 +154,8 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
             <Upload size={22} />
           </div>
           <div className="text-left">
-            <div className="font-black text-xs dark:text-white uppercase tracking-widest text-blue-400">Restaurar Dados</div>
-            <div className="text-[10px] text-slate-500 font-bold">Importar arquivo de backup</div>
+            <div className="font-black text-xs dark:text-white uppercase tracking-widest text-blue-400">Importar Arquivo</div>
+            <div className="text-[10px] text-slate-500 font-bold">Restaurar de um arquivo .json</div>
           </div>
           <input type="file" className="hidden" accept=".json" onChange={handleImport} />
         </label>
@@ -132,7 +163,7 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
 
       <div className="pt-4">
         <button onClick={onClearAllData} className="w-full py-4 text-rose-500/50 hover:text-rose-500 text-[10px] font-black uppercase tracking-[0.3em] transition-colors flex items-center justify-center gap-2">
-          <AlertTriangle size={14} /> Wipe All Local Storage
+          <AlertTriangle size={14} /> Limpar Cache Local (Wipe)
         </button>
       </div>
     </div>

@@ -10,6 +10,10 @@ import {
 } from '../utils/constants';
 
 class StorageService {
+  /**
+   * Obtém todos os modelos do localStorage.
+   * Prioriza dados salvos; apenas retorna os padrões do código se o storage estiver limpo.
+   */
   getAllModels(): SavedModel[] {
     try {
       const item = localStorage.getItem(LOCAL_STORAGE_KEY_MODELS);
@@ -17,11 +21,13 @@ class StorageService {
         const parsed = JSON.parse(item);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
+      
+      // Se não houver dados, inicializa com os padrões
       const defaults = [ICCAR_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ALMEIDA_DEFAULT_MODEL];
       this.saveModels(defaults);
       return defaults;
     } catch (error) {
-      console.error("Erro ao ler modelos:", error);
+      console.error("Erro crítico ao ler modelos do storage local:", error);
       return [ICCAR_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ALMEIDA_DEFAULT_MODEL];
     }
   }
@@ -30,7 +36,7 @@ class StorageService {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY_MODELS, JSON.stringify(models));
     } catch (error) {
-      console.error("Erro ao salvar modelos:", error);
+      console.error("Erro ao persistir modelos no localStorage:", error);
     }
   }
 
@@ -46,22 +52,32 @@ class StorageService {
     return newModels;
   }
 
+  /**
+   * Salva ou atualiza um modelo. 
+   * Mantém a integridade do banco local substituindo apenas o item correspondente pelo ID.
+   */
   saveOrUpdateModel(model: SavedModel): SavedModel[] {
     const models = this.getAllModels();
     const index = models.findIndex(m => m.id === model.id);
     
     let newModels = [...models];
+    const modelToSave = { ...model, updatedAt: new Date().toISOString() };
+    
     if (index >= 0) {
-      newModels[index] = { ...model, updatedAt: new Date().toISOString() };
+      newModels[index] = modelToSave;
     } else {
-      newModels = [{ ...model, updatedAt: new Date().toISOString() }, ...newModels];
+      // Adiciona novos modelos ao topo da lista
+      newModels = [modelToSave, ...newModels];
     }
     
     this.saveModels(newModels);
     return newModels;
   }
 
+  // --- PERSISTÊNCIA DE SESSÃO ---
+
   saveLastActiveId(id: string): void {
+    if (!id) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_ACTIVE_ID, id);
   }
 
@@ -69,11 +85,16 @@ class StorageService {
     return localStorage.getItem(LOCAL_STORAGE_KEY_ACTIVE_ID);
   }
 
+  /**
+   * Restaura o banco de dados local para o estado original do sistema.
+   */
   resetModels(): SavedModel[] {
     const defaults = [ICCAR_DEFAULT_MODEL, GUIMARAES_DEFAULT_MODEL, ALMEIDA_DEFAULT_MODEL];
     this.saveModels(defaults);
     return defaults;
   }
+
+  // --- LAYOUTS (VISUAL) ---
 
   getAllLayouts(): LayoutConfig[] {
     try {

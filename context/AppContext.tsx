@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates } from '../types';
 import { db } from '../services/storage';
+import { api } from '../services/api';
 import { BLANK_INVOICE, BLANK_POSTO } from '../utils/constants';
 import { parseLocaleNumber, toCurrency, quantityToFloat } from '../utils/helpers';
 
@@ -30,7 +31,9 @@ interface AppContextData {
   handleImportBackup: (models: SavedModel[], layouts?: LayoutConfig[]) => void;
   handleDeleteLayout: (id: string) => void;
   handleUpdateTaxRates: (newRates: TaxRates) => void;
+  handleSyncFromCloud: () => Promise<void>;
   isSaving: boolean;
+  isSyncing: boolean;
   notifications: { message: string; type: 'success' | 'error' | 'info'; id: number }[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -39,6 +42,7 @@ const AppContext = createContext<AppContextData>({} as AppContextData);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [notifications, setNotifications] = useState<{ message: string; type: 'success' | 'error' | 'info'; id: number }[]>([]);
   
   const [selectedModelId, setSelectedModelId] = useState<string>('');
@@ -51,8 +55,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   const [customLayouts, setCustomLayouts] = useState<LayoutConfig[]>([]);
 
-  const isInitialLoad = useRef(true);
+  const isUpdatingState = useRef(false);
 
+  // Inicialização
   useEffect(() => {
     const models = db.getAllModels();
     const layouts = db.getAllLayouts();
@@ -65,48 +70,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } else if (models.length > 0) {
       handleLoadModel(models[0].id);
     }
-    
-    setTimeout(() => { isInitialLoad.current = false; }, 500);
+
+    // Tenta sincronizar com a nuvem silenciosamente no início
+    handleSyncFromCloud(true);
   }, []);
-
-  useEffect(() => {
-    if (isInitialLoad.current || fuels.length === 0) return;
-    const isCard = ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
-    
-    setFuels(prevFuels => prevFuels.map(item => {
-      const product = prices.find(p => p.id === item.productId || p.code === item.code);
-      if (!product) return item;
-      const activePriceStr = isCard && product.priceCard && parseLocaleNumber(product.priceCard) > 0 
-        ? product.priceCard 
-        : product.price;
-      const unitPrice = parseLocaleNumber(activePriceStr);
-      const qty = quantityToFloat(item.quantity);
-      const newTotal = toCurrency(qty * unitPrice);
-      if (item.total === newTotal) return item;
-      return { ...item, unitPrice: product.price, unitPriceCard: product.priceCard, total: newTotal };
-    }));
-  }, [invoiceData.formaPagamento, prices]);
-
-  useEffect(() => {
-    if (isInitialLoad.current || !selectedModelId) return;
-    const autoSaveTimer = setTimeout(() => {
-      const currentModel = savedModels.find(m => m.id === selectedModelId);
-      if (!currentModel) return;
-      const modelToUpdate: SavedModel = {
-        ...currentModel, postoData, prices, taxRates, invoiceData, fuels,
-        updatedAt: new Date().toISOString()
-      };
-      const updatedList = db.saveOrUpdateModel(modelToUpdate);
-      setSavedModels(updatedList);
-      db.saveLastActiveId(selectedModelId);
-    }, 1000);
-    return () => clearTimeout(autoSaveTimer);
-  }, [postoData, prices, taxRates, invoiceData, fuels, selectedModelId]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
     setNotifications(prev => [...prev, { message, type, id }]);
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
+  };
+
+  const handleSyncFromCloud = async (silent = false) => {
+    if (!silent) setIsSyncing(true);
+    try {
+      const cloudModels = await api.getModels();
+      if (cloudModels.length > 0) {
+        // Merge: mantém o que tem no local, adiciona o que vem da nuvem
+        const localModels = db.getAllModels();
+        const merged = [...localModels];
+        
+        cloudModels.forEach(cm => {
+          const index = merged.findIndex(m => m.id === cm.id);
+          if (index === -1) {
+            merged.push(cm); // Recupera modelo que não existe localmente
+          } else {
+            // Se a data da nuvem for mais recente, atualiza local
+            if (new Date(cm.updatedAt) > new Date(merged[index].updatedAt)) {
+              merged[index] = cm;
+            }
+          }
+        });
+
+        db.saveModels(merged);
+        setSavedModels(merged);
+        if (!silent) showToast(`Sincronizado: ${cloudModels.length} modelos na nuvem`, "success");
+      }
+    } catch (error) {
+      if (!silent) showToast("Erro ao sincronizar com nuvem", "error");
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
   };
 
   const handleUpdateTaxRates = (newRates: TaxRates) => {
@@ -117,8 +121,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const handleLoadModel = (id: string) => {
     const model = db.getModelById(id);
     if (!model) return;
-    const prevInitial = isInitialLoad.current;
-    isInitialLoad.current = true;
+    
+    isUpdatingState.current = true;
     setPostoData({ ...BLANK_POSTO, ...model.postoData });
     setPrices(model.prices || []);
     setTaxRates({ ...DEFAULT_TAX_RATES, ...(model.taxRates || {}) });
@@ -126,62 +130,98 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setInvoiceData({ ...BLANK_INVOICE, ...model.invoiceData });
     setSelectedModelId(id);
     db.saveLastActiveId(id);
-    setTimeout(() => { isInitialLoad.current = prevInitial; }, 50);
+
+    setTimeout(() => { isUpdatingState.current = false; }, 150);
   };
 
   const handleSaveModel = async () => {
+    if (!postoData.razaoSocial) {
+      showToast("Preencha ao menos o nome do posto!", "error");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const currentId = selectedModelId || Date.now().toString();
-      const name = selectedModelId ? (savedModels.find(m => m.id === currentId)?.name || 'Modelo') : `Modelo ${new Date().toLocaleTimeString()}`;
-      const modelToSave: SavedModel = { id: currentId, name, updatedAt: new Date().toISOString(), postoData, prices, taxRates, invoiceData, fuels };
+      const currentId = selectedModelId || `user_${Date.now()}`;
+      const existingModel = savedModels.find(m => m.id === currentId);
+      const name = existingModel?.name || `Modelo ${new Date().toLocaleTimeString()}`;
+      
+      const modelToSave: SavedModel = { 
+        id: currentId, 
+        name, 
+        updatedAt: new Date().toISOString(), 
+        postoData, 
+        prices, 
+        taxRates, 
+        invoiceData, 
+        fuels 
+      };
+
+      // 1. Salva Local
       const updatedList = db.saveOrUpdateModel(modelToSave);
       setSavedModels(updatedList);
       setSelectedModelId(currentId);
       db.saveLastActiveId(currentId);
-      showToast(selectedModelId ? "Alterações sincronizadas!" : "Modelo criado e salvo!", "success");
+      
+      // 2. Salva na Nuvem (Assíncrono)
+      const savedInCloud = await api.saveModel(modelToSave);
+      if (savedInCloud && savedInCloud.id !== modelToSave.id) {
+        // Se a API gerou um novo ID (MongoDB _id), atualizamos localmente
+        const finalList = db.getAllModels().map(m => m.id === currentId ? savedInCloud : m);
+        db.saveModels(finalList);
+        setSavedModels(finalList);
+        setSelectedModelId(savedInCloud.id);
+        db.saveLastActiveId(savedInCloud.id);
+      }
+      
+      showToast("Guardado localmente e na nuvem!", "success");
     } catch (error) {
-      showToast("Erro ao salvar.", "error");
+      showToast("Erro ao gravar. Verifique conexão.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDeleteModel = (id: string) => {
+  const handleDeleteModel = async (id: string) => {
+    // Apenas deleta localmente para permitir recuperação posterior via Sync
     const newList = db.deleteModel(id);
     setSavedModels(newList);
+    
     if (id === selectedModelId) {
       if (newList.length > 0) handleLoadModel(newList[0].id);
       else handleNewModel();
     }
-    showToast("Modelo removido do banco.", "info");
+    showToast("Modelo removido do cache local.", "info");
   };
 
-  const handleRenameModel = (id: string, newName: string) => {
+  const handleRenameModel = async (id: string, newName: string) => {
      const model = savedModels.find(m => m.id === id);
      if (model) {
-        const updated = { ...model, name: newName };
-        setSavedModels(db.saveOrUpdateModel(updated));
-        showToast("Nome atualizado!", "success");
+        const updated = { ...model, name: newName, updatedAt: new Date().toISOString() };
+        db.saveOrUpdateModel(updated);
+        setSavedModels(prev => prev.map(m => m.id === id ? updated : m));
+        await api.saveModel(updated);
+        showToast("Título atualizado!", "success");
      }
   };
 
   const handleNewModel = () => {
-    isInitialLoad.current = true;
+    isUpdatingState.current = true;
     setSelectedModelId('');
     setPostoData({ ...BLANK_POSTO });
     setInvoiceData({ ...BLANK_INVOICE });
     setFuels([]);
     setPrices([]);
     setTaxRates({ ...DEFAULT_TAX_RATES });
-    setTimeout(() => { isInitialLoad.current = false; }, 50);
+    setTimeout(() => { isUpdatingState.current = false; }, 150);
+    showToast("Novo rascunho iniciado", "info");
   };
 
   const handleResetAll = () => {
     const defaults = db.resetModels();
     setSavedModels(defaults);
     handleLoadModel(defaults[0].id);
-    showToast("Banco de dados restaurado.", "success");
+    showToast("Cache local restaurado.", "success");
   };
 
   const handleImportBackup = (models: SavedModel[], layouts?: LayoutConfig[]) => {
@@ -193,7 +233,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSavedModels(models);
     if (models.length > 0) handleLoadModel(models[0].id);
     else handleNewModel();
-    showToast(`Backup importado com sucesso.`, "success");
+    showToast(`${models.length} modelos importados.`, "success");
   };
 
   const handleDeleteLayout = (id: string) => {
@@ -217,7 +257,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       selectedModelId, setSelectedModelId,
       handleLoadModel, handleSaveModel, handleDeleteModel,
       handleRenameModel, handleNewModel, handleResetAll, handleImportBackup, handleDeleteLayout, handleUpdateTaxRates,
-      isSaving, notifications, showToast
+      handleSyncFromCloud,
+      isSaving, isSyncing, notifications, showToast
     }}>
       {children}
     </AppContext.Provider>
