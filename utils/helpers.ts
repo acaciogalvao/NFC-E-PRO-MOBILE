@@ -1,5 +1,5 @@
 
-// Utilitários de Formatação e Parseamento
+// Utilitários de Formatação e Auxílio
 
 export const parseLocaleNumber = (stringNumber: string) => {
   if (!stringNumber) return 0;
@@ -40,22 +40,13 @@ export const formatPhone = (v: string) => {
   return v.replace(/^(\d{2})(\d{5})(\d+)/, "($1) $2-$3").slice(0, 15);
 };
 
-export const formatEmailPix = (v: string) => {
-  let email = v.toLowerCase();
-  const comIndex = email.indexOf('.com');
-  if (comIndex !== -1) {
-    return email.substring(0, comIndex + 4);
-  }
-  return email;
-};
-
 export const formatPixKey = (value: string, type: string) => {
   switch (type) {
     case 'CNPJ': return formatCNPJ(value);
     case 'CPF': return formatCPF(value);
     case 'TELEFONE': return formatPhone(value);
-    case 'EMAIL': return formatEmailPix(value);
-    case 'ALEATORIA': return value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 36);
+    case 'EMAIL': return value.toLowerCase().trim();
+    case 'ALEATORIA': return value.trim();
     default: return value;
   }
 };
@@ -104,46 +95,81 @@ export const generateNfceQrCodeUrl = (
 };
 
 /**
- * GERAÇÃO DE PAYLOAD PIX DINÂMICO (PADRÃO BRASIL / EMV)
- * Corrigido para calcular comprimentos e CRC16 real.
+ * GERAÇÃO DE PAYLOAD PIX PROFISSIONAL (BRCODE)
  */
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, type: string) => {
-  const cleanKey = type === 'EMAIL' ? key : key.replace(/\D/g, '');
-  const cleanName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().slice(0, 25);
-  const cleanCity = (city || 'IMPERATRIZ').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().slice(0, 15);
+  // 1. Limpeza e Formatação da Chave por Tipo
+  let cleanKey = '';
+  if (type === 'TELEFONE') {
+    // Para telefone, o padrão Pix EXIGE o sinal '+' e o código do país '55'
+    cleanKey = key.replace(/\D/g, '');
+    if (!cleanKey.startsWith('55')) {
+      cleanKey = '55' + cleanKey;
+    }
+    cleanKey = '+' + cleanKey; 
+  } else if (type === 'CNPJ' || type === 'CPF') {
+    // CPF e CNPJ devem ser APENAS números no payload
+    cleanKey = key.replace(/\D/g, '');
+  } else if (type === 'EMAIL') {
+    cleanKey = key.toLowerCase().trim();
+  } else {
+    // Chave Aleatória ou outros
+    cleanKey = key.trim();
+  }
 
-  const formatField = (id: string, val: string) => {
+  // 2. Sanitização de Nome e Cidade (Apenas caracteres ASCII permitidos no padrão EMV)
+  const sanitize = (s: string) => s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9 ]/gi, "")
+    .toUpperCase()
+    .trim();
+
+  const finalName = sanitize(name || 'ESTABELECIMENTO').slice(0, 25);
+  const finalCity = sanitize(city || 'CIDADE').slice(0, 15);
+
+  // Auxiliar para formatar campos EMV (ID + TAMANHO + VALOR)
+  const f = (id: string, val: string) => {
     const len = val.length.toString().padStart(2, '0');
     return `${id}${len}${val}`;
   };
 
-  const merchantAccountInfo = formatField('00', 'br.gov.bcb.pix') + formatField('01', cleanKey);
-  
+  // 3. Montagem dos Blocos de Dados
+  const merchantAccountInfo = f('00', 'br.gov.bcb.pix') + f('01', cleanKey);
+
   let payload = '000201'; // Payload Format Indicator
-  payload += formatField('26', merchantAccountInfo);
-  payload += '52040000'; // Merchant Category Code (MCC)
-  payload += '5303986'; // Transaction Currency (BRL)
+  payload += '010211';   // Point of Initiation Method (11 = Estático)
+  payload += f('26', merchantAccountInfo); // Merchant Account Info
+  payload += '52040000'; // Merchant Category Code
+  payload += '5303986';  // Currency (BRL)
   
   if (amount > 0) {
-    payload += formatField('54', amount.toFixed(2));
+    payload += f('54', amount.toFixed(2)); // Transaction Amount
   }
   
   payload += '5802BR'; // Country Code
-  payload += formatField('59', cleanName);
-  payload += formatField('60', cleanCity);
-  payload += formatField('62', formatField('05', '***')); // Additional Data (TXID)
-  payload += '6304'; // CRC16 Prefix
+  payload += f('59', finalName); // Merchant Name
+  payload += f('60', finalCity); // Merchant City
+  payload += f('62', f('05', '***')); // Additional Data (TXID ***)
+  
+  payload += '6304'; // CRC16 Identifier
 
-  // Cálculo de CRC16 CCITT (Polinômio 0x1021)
+  // 4. Cálculo do CRC16 CCITT (Polinômio 0x1021, Init 0xFFFF)
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
-    crc ^= (payload.charCodeAt(i) << 8);
+    crc ^= payload.charCodeAt(i) << 8;
     for (let j = 0; j < 8; j++) {
-      if ((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021;
-      else crc <<= 1;
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
     }
   }
   
-  const finalCrc = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-  return payload + finalCrc;
+  const finalCrc = crc.toString(16).toUpperCase().padStart(4, '0');
+  const result = payload + finalCrc;
+  
+  console.debug("[PIX] Payload Final:", result);
+  return result;
 };

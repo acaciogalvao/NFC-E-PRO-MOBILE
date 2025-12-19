@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { PaymentMethod } from '../types';
 import { CreditCard, Banknote, CheckCircle, Loader2, Wifi, QrCode as QrIcon, Copy, Check } from 'lucide-react';
@@ -21,13 +22,36 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
 
   const pixPayload = useMemo(() => {
     if (invoiceData.formaPagamento === 'PIX' && postoData.chavePix) {
-      return generatePixPayload(postoData.chavePix, postoData.razaoSocial, 'IMPERATRIZ', totalLiquido, postoData.tipoChavePix);
+      // Extraindo a cidade do endereço para o Pix
+      const addressParts = (postoData.endereco || '').split(',');
+      let city = 'IMPERATRIZ';
+      
+      if (addressParts.length > 1) {
+        const lastPart = addressParts[addressParts.length - 1];
+        if (lastPart.includes('-')) {
+          city = lastPart.split('-')[0].trim();
+        } else {
+          city = lastPart.trim();
+        }
+      }
+
+      // Se por algum motivo a limpeza falhar, manter fallback seguro
+      if (!city || city.length < 2) city = 'IMPERATRIZ';
+      
+      return generatePixPayload(
+        postoData.chavePix, 
+        postoData.razaoSocial, 
+        city, 
+        totalLiquido, 
+        postoData.tipoChavePix || 'CNPJ'
+      );
     }
     return '';
-  }, [invoiceData.formaPagamento, postoData.chavePix, postoData.razaoSocial, totalLiquido, postoData.tipoChavePix]);
+  }, [invoiceData.formaPagamento, postoData, totalLiquido]);
 
   const qrCodeUrl = useMemo(() => {
     if (!pixPayload) return '';
+    // Gerador de QR Code externo (API Gratuita)
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixPayload)}`;
   }, [pixPayload]);
 
@@ -96,12 +120,32 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
               </div>
               <div className="text-center w-full">
                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Aguardando transferência Pix</p>
-                 {pixPayload && <button onClick={handleCopyPix} className="flex items-center gap-2 mx-auto px-6 py-3 bg-emerald-500/10 text-emerald-500 rounded-2xl text-xs font-black uppercase tracking-widest border border-emerald-500/20">{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? 'COPIADO!' : 'PIX COPIA E COLA'}</button>}
+                 {pixPayload && (
+                   <div className="flex flex-col gap-2">
+                     <button onClick={handleCopyPix} className="flex items-center gap-2 mx-auto px-6 py-3 bg-emerald-500/10 text-emerald-500 rounded-2xl text-xs font-black uppercase tracking-widest border border-emerald-500/20 active:scale-95 transition-all">
+                       {copied ? <Check size={16} /> : <Copy size={16} />}
+                       {copied ? 'COPIADO!' : 'PIX COPIA E COLA'}
+                     </button>
+                   </div>
+                 )}
               </div>
            </>
-        ) : <div className="flex flex-col items-center text-slate-600"><Banknote size={64} strokeWidth={1} className="mb-4 opacity-20" /><p className="text-xs font-bold uppercase tracking-widest">Aguardando {invoiceData.formaPagamento}</p></div>}
+        ) : (
+          <div className="flex flex-col items-center text-slate-600">
+            <Banknote size={64} strokeWidth={1} className="mb-4 opacity-20" />
+            <p className="text-xs font-bold uppercase tracking-widest">Aguardando {invoiceData.formaPagamento}</p>
+          </div>
+        )}
       </div>
-      {!paymentSuccess && <button onClick={confirmAction} disabled={verifyingPayment} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 py-5 rounded-[2rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 tracking-[0.1em] disabled:opacity-50 transition-transform active:scale-95">{verifyingPayment ? <Loader2 className="animate-spin" /> : <><Wifi size={20} /> CONFIRMAR RECEBIMENTO</>}</button>}
+      {!paymentSuccess && (
+        <button 
+          onClick={confirmAction} 
+          disabled={verifyingPayment} 
+          className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 py-5 rounded-[2rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 tracking-[0.1em] disabled:opacity-50 transition-transform active:scale-95"
+        >
+          {verifyingPayment ? <Loader2 className="animate-spin" /> : <><Wifi size={20} /> CONFIRMAR RECEBIMENTO</>}
+        </button>
+      )}
     </div>
   );
 };
