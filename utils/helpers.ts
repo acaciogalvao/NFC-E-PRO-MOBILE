@@ -1,86 +1,111 @@
 
 // Utilitários de Formatação e Auxílio
 
-export const parseLocaleNumber = (stringNumber: string) => {
-  if (!stringNumber) return 0;
-  const str = String(stringNumber);
-  const cleanStr = str.replace(/\./g, '').replace(',', '.');
-  const val = parseFloat(cleanStr);
-  return isFinite(val) ? val : 0;
+/**
+ * Converte strings em formato brasileiro (1.234,56) ou internacional (1234.56) 
+ * para um float real do JavaScript.
+ */
+export const parseLocaleNumber = (val: any) => {
+  if (typeof val === 'number') return val;
+  if (val === null || val === undefined) return 0;
+  
+  let s = String(val).trim();
+  if (!s) return 0;
+
+  // Se a string contém vírgula, tratamos como formato PT-BR
+  // Ex: "1.234,56" -> removemos o ponto e trocamos a vírgula por ponto
+  if (s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+  
+  const res = parseFloat(s);
+  return isFinite(res) ? res : 0;
 };
 
-export const toCurrency = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-export const to3Decimals = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+export const toCurrency = (val: number) => {
+  const safeVal = isFinite(val) ? val : 0;
+  return safeVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
-export const round2 = (num: number) => Math.round(num * 100) / 100;
+export const to3Decimals = (val: number) => {
+  const safeVal = isFinite(val) ? val : 0;
+  return safeVal.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+};
+
+export const round2 = (num: number) => Math.round((num || 0) * 100) / 100;
 
 export const NFCE_PORTAL_URL = 'http://www.nfce.sefaz.ma.gov.br/portal/consultaNFe.do?method=preFilterCupom';
 
-export const formatCNPJ = (v: string) => {
-  v = v.replace(/\D/g, "");
-  if (v.length <= 2) return v;
-  if (v.length <= 5) return v.replace(/^(\d{2})(\d+)/, "$1.$2");
-  if (v.length <= 8) return v.replace(/^(\d{2})(\d{3})(\d+)/, "$1.$2.$3");
-  if (v.length <= 12) return v.replace(/^(\d{2})(\d{3})(\d{3})(\d+)/, "$1.$2.$3/$4");
-  return v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, "$1.$2.$3/$4-$5").slice(0, 18);
+export const formatCNPJ = (v: any) => {
+  if (!v) return "";
+  let val = String(v).replace(/\D/g, "");
+  if (val.length <= 2) return val;
+  if (val.length <= 5) return val.replace(/^(\d{2})(\d+)/, "$1.$2");
+  if (val.length <= 8) return val.replace(/^(\d{2})(\d{3})(\d+)/, "$1.$2.$3");
+  if (val.length <= 12) return val.replace(/^(\d{2})(\d{3})(\d{3})(\d+)/, "$1.$2.$3/$4");
+  return val.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, "$1.$2.$3/$4-$5").slice(0, 18);
 };
 
-export const formatCPF = (v: string) => {
-  v = v.replace(/\D/g, "");
-  if (v.length <= 3) return v;
-  if (v.length <= 6) return v.replace(/^(\d{3})(\d+)/, "$1.$2");
-  if (v.length <= 9) return v.replace(/^(\d{3})(\d{3})(\d+)/, "$1.$2.$3");
-  return v.replace(/^(\d{3})(\d{3})(\d{3})(\d+)/, "$1.$2.$3-$4").slice(0, 14);
+export const formatCPF = (v: any) => {
+  if (!v) return "";
+  let val = String(v).replace(/\D/g, "");
+  if (val.length <= 3) return val;
+  if (val.length <= 6) return val.replace(/^(\d{3})(\d+)/, "$1.$2");
+  if (val.length <= 9) return val.replace(/^(\d{3})(\d{3})(\d+)/, "$1.$2.$3");
+  return val.replace(/^(\d{3})(\d{3})(\d{3})(\d+)/, "$1.$2.$3-$4").slice(0, 14);
 };
 
-export const formatCEP = (v: string) => {
-  v = v.replace(/\D/g, "");
-  if (v.length <= 5) return v;
-  return v.replace(/^(\d{5})(\d+)/, "$1-$2").slice(0, 9);
+export const formatCEP = (v: any) => {
+  if (!v) return "";
+  let val = String(v).replace(/\D/g, "");
+  if (val.length <= 5) return val;
+  return val.replace(/^(\d{5})(\d+)/, "$1-$2").slice(0, 9);
 };
 
-export const formatPhone = (v: string) => {
-  v = v.replace(/\D/g, "");
-  if (v.length <= 2) return v;
-  if (v.length <= 7) return v.replace(/^(\d{2})(\d+)/, "($1) $2");
-  return v.replace(/^(\d{2})(\d{5})(\d+)/, "($1) $2-$3").slice(0, 15);
+export const formatPhone = (v: any) => {
+  if (!v) return "";
+  let val = String(v).replace(/\D/g, "");
+  if (val.length <= 2) return val;
+  if (val.length <= 7) return val.replace(/^(\d{2})(\d+)/, "($1) $2");
+  return val.replace(/^(\d{2})(\d{5})(\d+)/, "($1) $2-$3").slice(0, 15);
 };
 
-export const formatPixKey = (value: string, type: string) => {
+export const formatPixKey = (value: any, type: string) => {
+  if (!value) return "";
   switch (type) {
     case 'CNPJ': return formatCNPJ(value);
     case 'CPF': return formatCPF(value);
     case 'TELEFONE': return formatPhone(value);
-    case 'EMAIL': return value.toLowerCase().trim();
-    case 'ALEATORIA': return value.trim();
-    default: return value;
+    case 'EMAIL': return String(value).toLowerCase().trim();
+    case 'ALEATORIA': return String(value).trim();
+    default: return String(value);
   }
 };
 
-export const formatMoneyMask = (value: string) => {
-  const numeric = value.replace(/\D/g, '');
+export const formatMoneyMask = (value: any) => {
+  if (value === null || value === undefined) return '0,00';
+  const numeric = String(value).replace(/\D/g, '');
   if (!numeric) return '0,00';
   const floatVal = parseFloat(numeric) / 100;
   return floatVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-export const formatQuantityInput = (value: string) => {
-  const numeric = value.replace(/\D/g, '');
+export const formatQuantityInput = (value: any) => {
+  if (value === null || value === undefined) return '0,000';
+  const numeric = String(value).replace(/\D/g, '');
   if (!numeric) return '0,000';
   const floatVal = parseFloat(numeric) / 1000;
   return floatVal.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 };
 
-export const moneyToFloat = (str: string) => {
+export const moneyToFloat = (str: any) => {
   if (!str) return 0;
-  const numeric = str.replace(/\D/g, '');
-  return parseFloat(numeric) / 100;
+  return parseLocaleNumber(str);
 };
 
-export const quantityToFloat = (str: string) => {
+export const quantityToFloat = (str: any) => {
   if (!str) return 0;
-  const numeric = str.replace(/\D/g, '');
-  return parseFloat(numeric) / 1000;
+  return parseLocaleNumber(str);
 };
 
 export const generateNfceAccessKey = (data: any) => {
@@ -92,7 +117,8 @@ export const generateNfceAccessKey = (data: any) => {
 export const generateNfceQrCodeUrl = (
   chave: string
 ) => {
-  const cleanChave = chave.replace(/\s/g, '');
+  if (!chave) return "";
+  const cleanChave = String(chave).replace(/\s/g, '');
   return `http://www.nfce.sefaz.ma.gov.br/portal/consultaNFe.do?method=preFilterCupom&chave=${cleanChave}`;
 };
 
@@ -101,21 +127,22 @@ export const generateNfceQrCodeUrl = (
  */
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, type: string) => {
   let cleanKey = '';
+  const safeKey = String(key || '');
   if (type === 'TELEFONE') {
-    cleanKey = key.replace(/\D/g, '');
+    cleanKey = safeKey.replace(/\D/g, '');
     if (!cleanKey.startsWith('55')) {
       cleanKey = '55' + cleanKey;
     }
     cleanKey = '+' + cleanKey; 
   } else if (type === 'CNPJ' || type === 'CPF') {
-    cleanKey = key.replace(/\D/g, '');
+    cleanKey = safeKey.replace(/\D/g, '');
   } else if (type === 'EMAIL') {
-    cleanKey = key.toLowerCase().trim();
+    cleanKey = safeKey.toLowerCase().trim();
   } else {
-    cleanKey = key.trim();
+    cleanKey = safeKey.trim();
   }
 
-  const sanitize = (s: string) => s
+  const sanitize = (s: string) => (s || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^A-Z0-9 ]/gi, "")
@@ -164,6 +191,5 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
   const finalCrc = crc.toString(16).toUpperCase().padStart(4, '0');
   const result = payload + finalCrc;
   
-  console.debug("[PIX] Payload Final:", result);
   return result;
 };

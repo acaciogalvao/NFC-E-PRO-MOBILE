@@ -1,12 +1,18 @@
 
 import React, { useState } from 'react';
-import { TabId } from './types';
-import TabBar from './components/layout/TabBar';
-import Header from './components/layout/Header';
-import ToastContainer from './components/layout/ToastContainer';
-import MainContent from './components/layout/MainContent';
-import { AppProvider, useAppContext } from './context/AppContext';
-import { ModelListModal, ActionModals } from './components/modals/ModelManagerModals';
+import { TabId } from './components/shared/types';
+import TabBar from './components/core/TabBar/TabBar';
+import Header from './components/core/Header/Header';
+import ToastContainer from './components/core/Toast/ToastContainer';
+import { AppProvider, useAppContext } from './components/shared/context/AppContext';
+import { ModelListModal, ActionModals } from './components/modules/Data/components/ModelManagerModals';
+
+import EditScreen from './components/modules/Edit/EditScreen';
+import PricesScreen from './screens/PricesScreen';
+import NoteScreen from './screens/NoteScreen';
+import CouponScreen from './screens/CouponScreen';
+import PaymentScreen from './screens/PaymentScreen';
+import DataScreen from './screens/DataScreen';
 
 import { useBluetooth } from './hooks/useBluetooth';
 import { usePrintPDF } from './hooks/usePrintPDF';
@@ -33,19 +39,19 @@ const AppLayout: React.FC = () => {
 
   const handlePrint = () => {
     if (activeTab !== 'NOTA' && activeTab !== 'CUPOM') {
-      showToast("Acesse a aba 'NFC-e' ou 'Cupom' para imprimir o documento.", "info");
+      showToast("Acesse a aba 'NFC-e' ou 'Cupom' para imprimir.", "info");
       return;
     }
     window.print();
   };
 
   const selectedModelName = selectedModelId 
-    ? (savedModels.find(m => m.id === selectedModelId)?.name || 'Novo Rascunho') 
+    ? (savedModels?.find(m => m.id === selectedModelId)?.name || 'Novo Rascunho') 
     : 'Novo Rascunho';
 
   return (
     <div className="w-full min-h-dvh flex flex-col bg-slate-50 dark:bg-[#0a0a0b] transition-colors duration-500 overflow-hidden">
-      <ToastContainer notifications={notifications} />
+      <ToastContainer notifications={notifications || []} />
 
       <Header 
         selectedModelName={selectedModelName}
@@ -64,21 +70,31 @@ const AppLayout: React.FC = () => {
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
 
-      <MainContent 
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        handleSaveModel={handleSaveModel}
-        savedModels={savedModels}
-        handleDeleteModel={handleDeleteModel}
-        setActionModal={setActionModal}
-        handleLoadModel={handleLoadModel}
-        handleImportBackup={handleImportBackup}
-      />
+      <main className="flex-1 overflow-y-auto px-6 pt-2 pb-32 no-scrollbar animate-reveal">
+        <div className="max-w-md mx-auto">
+          {activeTab === 'EDITAR' && <EditScreen onGenerate={() => setActiveTab('PAGAMENTO')} />}
+          {activeTab === 'PRECOS' && <PricesScreen />}
+          {activeTab === 'NOTA' && <NoteScreen />}
+          {activeTab === 'CUPOM' && <CouponScreen />}
+          {activeTab === 'PAGAMENTO' && <PaymentScreen onConfirm={() => { handleSaveModel(); setActiveTab('EDITAR'); }} />}
+          {activeTab === 'DADOS' && (
+            <DataScreen 
+              onRefresh={()=>{}} 
+              savedModels={savedModels || []} 
+              onDeleteModel={handleDeleteModel} 
+              onRenameModel={(id) => setActionModal({ type: 'RENAME', targetId: id })} 
+              onLoadModel={handleLoadModel} 
+              onClearAllData={() => setActionModal({type:'RESET_ALL'})} 
+              onImportBackup={handleImportBackup} 
+            />
+          )}
+        </div>
+      </main>
 
       <ModelListModal 
         isOpen={showModelModal} 
         onClose={() => setShowModelModal(false)} 
-        savedModels={savedModels} 
+        savedModels={savedModels || []} 
         selectedId={selectedModelId} 
         onLoad={handleLoadModel} 
         onNew={handleNewModel} 
@@ -93,7 +109,7 @@ const AppLayout: React.FC = () => {
           if (actionModal.type === 'NEW_MODEL') handleNewModel();
           setActionModal({ type: 'NONE' });
         }}
-        initialValue={actionModal.type === 'RENAME' ? savedModels.find(m => m.id === actionModal.targetId)?.name : ''}
+        initialValue={actionModal.type === 'RENAME' ? savedModels?.find(m => m.id === actionModal.targetId)?.name : ''}
         name={actionModal.name}
       />
     </div>

@@ -1,12 +1,14 @@
 
 import React from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
-import { parseLocaleNumber, toCurrency, to3Decimals, generatePixPayload, generateNfceQrCodeUrl, NFCE_PORTAL_URL } from '../utils/helpers';
-import { ReceiptData } from '../types';
+import { useAppContext } from '../components/shared/context/AppContext';
+import { parseLocaleNumber, toCurrency, to3Decimals, generateNfceQrCodeUrl, NFCE_PORTAL_URL, round2 } from '../utils/helpers';
+import { ReceiptData } from '../components/shared/types';
 
 const DanfeReceipt: React.FC<{ data: ReceiptData }> = ({ data }) => {
   const { posto, invoice, calculations } = data;
+  if (!invoice || !posto) return null;
+
   const { rawTotal, valFederal, valEstadual, activeFuels, qrCodeImageUrl } = calculations;
   const cleanKey = (invoice.chaveAcesso || '').replace(/\D/g, '') || '00000000000000000000000000000000000000000000';
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${cleanKey}&scale=2&height=12&incltext=false`;
@@ -65,7 +67,7 @@ const DanfeReceipt: React.FC<{ data: ReceiptData }> = ({ data }) => {
                 <div className="col-span-2 border-r border-black">V.UNIT</div>
                 <div className="col-span-2">V.TOTAL</div>
             </div>
-            {activeFuels.map((item, idx) => (
+            {(activeFuels || []).map((item, idx) => (
                 <div key={item.id || idx} className="grid grid-cols-12 border-b border-gray-100 text-[8.5px] text-center py-2 font-mono">
                     <div className="col-span-1 border-r border-gray-100 px-1">{item.code}</div>
                     <div className="col-span-5 border-r border-gray-100 px-2 text-left uppercase">{item.name}</div>
@@ -81,7 +83,7 @@ const DanfeReceipt: React.FC<{ data: ReceiptData }> = ({ data }) => {
          <div className="col-span-8 border border-black p-4">
             <div className={labelClass}>INFORMAÇÕES COMPLEMENTARES</div>
             <div className="text-[8.5px] leading-relaxed uppercase space-y-1">
-               <p><span className="font-bold">Trib Totais:</span> Federal R$ {toCurrency(valFederal)} | Estadual R$ {toCurrency(valEstadual)}.</p>
+               <p><span className="font-bold">Trib Totais:</span> Federal R$ {toCurrency(valFederal)} | Estadual R$ {toCurrency(valEstadual)} | Total R$ {toCurrency(valFederal + valEstadual)}.</p>
                <p><span className="font-bold">Pagamento:</span> {invoice.formaPagamento} | <span className="font-bold">Placa:</span> {invoice.placa || '---'} | <span className="font-bold">KM:</span> {invoice.km || '---'}</p>
                <p><span className="font-bold">Motorista:</span> {invoice.motorista || '---'} | <span className="font-bold">Operador:</span> {invoice.operador || '---'}</p>
                <p><span className="font-bold">Consulta SEFAZ:</span> {NFCE_PORTAL_URL}</p>
@@ -108,7 +110,11 @@ const NoteScreen: React.FC = () => {
   const { postoData, invoiceData, fuels } = useAppContext();
   const [zoomLevel, setZoomLevel] = React.useState(0.5);
   
-  const activeFuels = fuels.map(item => {
+  if (!invoiceData || !postoData) {
+    return <div className="p-10 text-center text-slate-500 font-bold uppercase text-xs">Carregando dados da nota...</div>;
+  }
+
+  const activeFuels = (fuels || []).map(item => {
     const q = parseLocaleNumber(item.quantity);
     const t = parseLocaleNumber(item.total);
     const p = q > 0 ? t / q : 0;
@@ -116,12 +122,15 @@ const NoteScreen: React.FC = () => {
   });
   
   const rawTotal = activeFuels.reduce((acc, item) => acc + item.t, 0);
-  const pctFederal = parseLocaleNumber(invoiceData.impostos.federal);
-  const pctEstadual = parseLocaleNumber(invoiceData.impostos.estadual);
-  const valFederal = rawTotal * (pctFederal / 100);
-  const valEstadual = rawTotal * (pctEstadual / 100);
+  
+  const pctFederal = parseLocaleNumber(invoiceData.impostos?.federal || '0');
+  const pctEstadual = parseLocaleNumber(invoiceData.impostos?.estadual || '0');
+  const pctMunicipal = parseLocaleNumber(invoiceData.impostos?.municipal || '0');
+  
+  const valFederal = round2((rawTotal * pctFederal) / 100);
+  const valEstadual = round2((rawTotal * pctEstadual) / 100);
+  const valMunicipal = round2((rawTotal * pctMunicipal) / 100);
 
-  // QR Code só é gerado se houver chave de acesso (nota finalizada)
   const qrCodeImageUrl = invoiceData.chaveAcesso 
     ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(generateNfceQrCodeUrl(invoiceData.chaveAcesso))}`
     : '';
@@ -133,11 +142,11 @@ const NoteScreen: React.FC = () => {
       rawTotal, 
       valFederal, 
       valEstadual, 
-      valMunicipal: 0,
+      valMunicipal,
       activeFuels, 
       qrCodeImageUrl,
-      valTotalTributos: valFederal + valEstadual,
-      paymentMethodLabel: invoiceData.formaPagamento
+      valTotalTributos: round2(valFederal + valEstadual + valMunicipal),
+      paymentMethodLabel: invoiceData.formaPagamento || 'DINHEIRO'
     } 
   };
 

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutConfig, ReceiptData } from '../../types';
+import { LayoutConfig, ReceiptData } from '../../shared/types';
 import { toCurrency, to3Decimals, NFCE_PORTAL_URL } from '../../utils/formatters';
 
 interface ReceiptProps {
@@ -38,6 +38,8 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
   const leading = spacingMap[layout.lineSpacing || 'NORMAL'];
   const safePadding = "px-3";
   const alignClass = layout.textAlign === 'CENTER' ? 'text-center' : 'text-left';
+  
+  // Se upperCaseAll for true, força maiúscula, senão usa normal
   const casing = layout.upperCaseAll ? 'uppercase' : '';
 
   const cleanKey = (invoice.chaveAcesso || '').replace(/\D/g, '');
@@ -57,6 +59,17 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
     total: 'w-[15%]'
   };
 
+  // Helper para Title Case
+  const toTitleCase = (str: string) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  // Ajuste do label de pagamento
+  const displayPayment = layout.upperCaseAll 
+    ? paymentMethodLabel 
+    : toTitleCase(paymentMethodLabel);
+
   return (
     <div 
       style={{ maxWidth: width, minWidth: width }} 
@@ -71,13 +84,16 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
 
       {/* SEÇÃO 1: CABEÇALHO PRINCIPAL */}
       {layout.showHeader && (
-        <div className={`py-1 border-b border-black flex flex-col items-center justify-center ${safePadding} ${alignClass}`}>
-          <div className={`font-black text-[20px] uppercase tracking-tighter leading-none mb-1`}>NFC-e</div>
-          <div className={`font-black ${headerFontSize} uppercase leading-tight`}>{posto.razaoSocial}</div>
-          <div className={`${fontSize} font-bold mt-0.5`}>
+        <div className={`py-1 border-b border-black flex flex-col ${safePadding}`}>
+          {/* Título NFC-e Centralizado */}
+          <div className={`w-full text-center font-black text-[20px] uppercase tracking-tighter leading-none mb-1`}>NFC-e</div>
+          
+          {/* Dados do Posto Alinhados à Esquerda */}
+          <div className={`w-full text-left font-black ${headerFontSize} uppercase leading-tight`}>{posto.razaoSocial}</div>
+          <div className={`w-full text-left ${fontSize} font-bold mt-0.5 uppercase`}>
             CNPJ: {posto.cnpj} &nbsp;&nbsp; Insc. Estadual: {posto.inscEstadual || 'ISENTO'}
           </div>
-          <div className={`${fontSize} font-bold leading-tight`}>
+          <div className={`w-full text-left ${fontSize} font-bold leading-tight uppercase`}>
             {addressLines.map((line: string, i: number) => (
               <div key={i}>{line.trim()}</div>
             ))}
@@ -87,7 +103,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
 
       {/* SEÇÃO 2: TÍTULO DO DOCUMENTO */}
       <div className={`py-1.5 border-b border-black flex flex-col items-center justify-center ${safePadding} text-center`}>
-        <div className={`font-black text-[9px] uppercase leading-tight ${casing}`}>
+        <div className={`font-black text-[9px] leading-tight ${casing}`}>
           {layout.customTexts.headerTitle}
         </div>
         <div className="text-[7px] font-bold mt-1 leading-tight">
@@ -114,7 +130,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
           <div key={idx} className={`flex w-full items-start py-1 ${tableFontSize} font-bold text-left leading-tight ${layout.showSeparatorLines && idx !== activeFuels.length - 1 ? 'border-b border-black/5' : ''}`}>
             <span className={colWidths.it}>{idx + 1}</span>
             <span className={colWidths.cod}>{item.code}</span>
-            <span className={`${colWidths.desc} pr-1 break-words ${casing}`}>{item.name}</span>
+            <span className={`${colWidths.desc} pr-1 break-words uppercase`}>{item.name}</span>
             <span className={`${colWidths.qty} text-right`}>{to3Decimals(item.q)}</span>
             <span className={`${colWidths.un} text-center`}>{item.unit}</span>
             <span className={`${colWidths.unit} text-right`}>{to3Decimals(item.p)}</span>
@@ -124,7 +140,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
       </div>
 
       {/* SEÇÃO 5: TOTAIS E PAGAMENTO */}
-      <div className={`py-2 border-b border-black space-y-0.5 ${safePadding} text-left`}>
+      <div className={`py-2 border-b border-black space-y-1 ${safePadding} text-left`}>
         <div className={`flex justify-between ${fontSize} font-bold`}>
           <span className={casing}>Qtd. Total de Itens</span>
           <span>{activeFuels.length}</span>
@@ -137,17 +153,17 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
           <span className={casing}>Valor Desconto R$</span>
           <span>0,00</span>
         </div>
-        <div className={`flex justify-between ${fontSize} font-black pt-0.5 border-t border-black/5`}>
+        <div className={`flex justify-between ${fontSize} font-black`}>
           <span className={casing}>Valor a Pagar R$</span>
           <span>{toCurrency(rawTotal)}</span>
         </div>
-        <div className={`flex justify-between ${fontSize} font-black`}>
-          <span className="uppercase">{paymentMethodLabel}</span>
+        <div className={`flex justify-between ${fontSize} font-normal`}>
+          <span className={casing}>{displayPayment}</span>
           <span>{toCurrency(rawTotal)}</span>
         </div>
-        <div className={`flex justify-between ${fontSize} font-bold pt-1 opacity-80`}>
-          <span className="text-[7.5px] uppercase">Valor Total Tributos (Lei 12.741/2012)</span>
-          <span className="text-[7.5px]">{toCurrency(valTotalTributos)}</span>
+        <div className={`flex justify-between ${fontSize} font-bold`}>
+          <span className={casing}>Valor Total Tributos (Lei 12.741/2012)</span>
+          <span>{toCurrency(valTotalTributos)}</span>
         </div>
       </div>
 
@@ -156,13 +172,17 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
         <div className={`font-black text-[8.5px] uppercase tracking-tight`}>
           {layout.customTexts.taxLabel || 'INFORMAÇÕES ADICIONAIS DE INTERESSE DO CONTRIBUINTE'}
         </div>
-        <div className={`${fontSize} font-bold uppercase`}>
-          Placa: {invoice.placa || '---'} KM: {invoice.km || '---'}
+        <div className={`${fontSize} font-bold ${casing}`}>
+          Placa: {invoice.placa || '---'} &nbsp;&nbsp;&nbsp;&nbsp; KM: {invoice.km || '---'}
+        </div>
+        <div className={`${fontSize} font-bold ${casing}`}>
+          Motorista: {invoice.motorista || '---'}
+        </div>
+        <div className={`${fontSize} font-bold ${casing}`}>
+          Operador: {invoice.operador || '---'}
         </div>
         <div className={`${fontSize} font-bold leading-tight opacity-90`}>
-          Total Impostos Federais: R$ {toCurrency(valFederal)} <br/>
-          Total Impostos Estaduais: R$ {toCurrency(valEstadual)} <br/>
-          Total Impostos Municipais: R$ 0,00 (aprox. 0%)
+          Trib Aprox. R$: {toCurrency(valFederal)} Federal e {toCurrency(valEstadual)} Estadual
         </div>
         {layout.customTexts.extraNotes && (
           <div className="text-[7px] font-bold mt-2 pt-2 border-t border-black/5 opacity-70 italic whitespace-pre-line">
@@ -177,18 +197,25 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
       </div>
 
       {/* SEÇÃO 8: DADOS FISCAIS */}
-      <div className={`py-3 border-b border-black flex flex-col items-center justify-center space-y-2 ${safePadding}`}>
-        <div className="font-black text-[9px] uppercase leading-tight text-center">
-          N.º: {invoice.numero || '---'} &nbsp; Série: {invoice.serie || '001'} &nbsp; Emissão: {invoice.dataEmissao}
+      <div className={`py-2 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
+        {/* Linha 1: Dados da Nota (Negrito) */}
+        <div className={`font-bold text-[9px] ${casing} leading-none text-center`}>
+          N.º {invoice.numero || '---'} &nbsp; Série {invoice.serie || '001'} &nbsp; {invoice.dataEmissao}
         </div>
-        <div className="font-black text-[10px] uppercase tracking-widest bg-black/5 py-1 w-full text-center">
-          Via Consumidor
+        
+        {/* Linha 2: Via Consumidor (Negrito, abaixo da nota, sem espaço extra) */}
+        <div className={`font-bold text-[9px] ${casing} text-center leading-none mt-0`}>
+           Via Consumidor
         </div>
-        <div className="pt-1 text-center">
-          <div className={`${fontSize} font-bold`}>Consulte pela Chave de Acesso em:</div>
-          <div className="lowercase font-bold text-[8.5px] break-all leading-tight mt-1">{NFCE_PORTAL_URL}</div>
+
+        {/* Linha 3: Link de Consulta (Negrito, texto + URL) */}
+        <div className="pt-2 text-center">
+          <div className={`font-bold text-[8.5px] ${casing} mb-0.5`}>Consulte pela Chave de Acesso em:</div>
+          <div className="lowercase font-bold text-[8.5px] break-all leading-tight">{NFCE_PORTAL_URL}</div>
         </div>
-        <div className="pt-1 w-full text-center">
+
+        {/* Linha 4: Chave de Acesso */}
+        <div className="pt-2 w-full text-center">
            <div className="font-black text-[8px] uppercase mb-1">CHAVE DE ACESSO</div>
            <div className="text-[8.5px] tracking-tighter font-black break-all leading-tight px-2">
              {formattedKey}
@@ -206,7 +233,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
       {/* SEÇÃO 10: QR CODE */}
       {layout.showQrCode && (
         <div className={`py-5 border-b border-black flex flex-col items-center justify-center ${safePadding}`}>
-          <div className="text-[9px] font-black uppercase mb-3 tracking-tight">Consulta via leitor de QR Code</div>
+          <div className={`text-[9px] font-black ${casing} mb-3 tracking-tight`}>Consulta via leitor de QR Code</div>
           <div className="bg-white p-1">
             {qrCodeImageUrl && <img src={qrCodeImageUrl} alt="QR Code" className="w-48 h-48" />}
           </div>
@@ -215,7 +242,7 @@ const StandardReceipt: React.FC<ReceiptProps> = ({ data, layout, width }) => {
 
       {/* SEÇÃO 11: PROTOCOLO FINAL */}
       {layout.showFooter && (
-        <div className={`py-3 flex flex-col items-center justify-center text-[9px] font-black leading-tight uppercase ${safePadding} text-center`}>
+        <div className={`py-3 flex flex-col items-center justify-center text-[9px] font-black leading-tight ${casing} ${safePadding} text-center`}>
           <div>Protocolo Autorização : {invoice.protocolo || '---'}</div>
           <div className="mt-1">{invoice.dataEmissao}</div>
           {layout.customTexts.footerMessage && (

@@ -19,21 +19,20 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [awaitingFirstChar, setAwaitingFirstChar] = useState<Record<string, boolean>>({});
 
-  const isSpecialPrice = ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
+  const isSpecialPrice = invoiceData?.formaPagamento && ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
 
-  // Efeito para sincronizar a string técnica #CF com o bico e quantidade atual
   useEffect(() => {
-    if (fuels.length > 0) {
+    if (fuels?.length > 0) {
       const firstFuel = fuels[0];
       const qty = firstFuel.quantity || '0,000';
-      const bico = invoiceData.bico || '01'; 
+      const bico = invoiceData?.bico || '01'; 
       const autoGen = `#CF:B${bico.padStart(2, '0')} EI0550800,620 EF0550927,830 V${qty}`;
       
-      if (invoiceData.detalheCodigo !== autoGen) {
+      if (invoiceData?.detalheCodigo !== autoGen) {
         setInvoiceData(prev => ({ ...prev, detalheCodigo: autoGen }));
       }
     }
-  }, [fuels, invoiceData.bico, setInvoiceData]);
+  }, [fuels, invoiceData?.bico, setInvoiceData]);
 
   const handleInvoiceChange = (field: string, value: string) => {
     setInvoiceData(prev => ({ ...prev, [field]: value }));
@@ -53,14 +52,14 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
       setAwaitingFirstChar(prev => ({ ...prev, [fieldKey]: false }));
     }
 
-    setFuels(prevFuels => prevFuels.map(f => {
+    setFuels(prevFuels => (prevFuels || []).map(f => {
       if (f.id === fuelId) { return calculateUpdate(f, field === 'qty' ? 'qty' : 'total', valueToProcess); }
       return f;
     }));
   };
 
   const calculateUpdate = (item: FuelItem, field: 'qty' | 'total', value: string): FuelItem => {
-    const currentProduct = prices.find(p => p.id === item.productId || p.code === item.code);
+    const currentProduct = (prices || []).find(p => p.id === item.productId || p.code === item.code);
     const activePriceStr = isSpecialPrice && currentProduct?.priceCard 
       ? currentProduct.priceCard 
       : (currentProduct?.price || item.unitPrice);
@@ -85,8 +84,9 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
 
   const addFuel = () => {
     const newId = Date.now().toString();
-    const defaultPrice = prices.length > 0 ? prices[0] : null;
-    setFuels([...fuels, { 
+    const currentPrices = prices || [];
+    const defaultPrice = currentPrices.length > 0 ? currentPrices[0] : null;
+    setFuels([...(fuels || []), { 
       id: newId, 
       productId: defaultPrice?.id, 
       code: defaultPrice?.code || '', 
@@ -100,20 +100,18 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
   };
 
   const handleFinalize = () => {
-    if (fuels.length === 0) {
+    if (!fuels || fuels.length === 0) {
       showToast("Adicione ao menos um item!", "error");
       return;
     }
 
     const nNota = Math.floor(100000 + Math.random() * 900000).toString();
-    // Série agora é gerada automaticamente como '001' se estiver vazia
-    const serieAutomatica = invoiceData.serie || '001';
+    const serieAutomatica = invoiceData?.serie || '001';
     const dataFormatada = new Date().toLocaleString('pt-BR');
     const chaveAcesso = generateNfceAccessKey({ uf: '21', cnpj: postoData.cnpj, serie: serieAutomatica, numero: nNota, tpEmis: '1', dataEmissao: dataFormatada });
     const protocolo = Math.floor(100000000000000 + Math.random() * 900000000000000).toString();
     const urlQrCode = generateNfceQrCodeUrl(chaveAcesso);
     
-    // GERAÇÃO AUTOMÁTICA DE BICO E SÉRIE
     const bicoAleatorio = Math.floor(Math.random() * 20 + 1).toString().padStart(2, '0');
     
     setInvoiceData(prev => ({ 
@@ -150,31 +148,31 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
         <div className="glass-card rounded-[2.5rem] p-6 space-y-4 border border-white/5">
            <div>
               <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Razão Social</label>
-              <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.razaoSocial} onChange={e => handlePostoChange('razaoSocial', e.target.value.toUpperCase())} placeholder="NOME DA EMPRESA" />
+              <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData?.razaoSocial} onChange={e => handlePostoChange('razaoSocial', e.target.value.toUpperCase())} placeholder="NOME DA EMPRESA" />
            </div>
            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">CNPJ</label>
-                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.cnpj} onChange={e => handlePostoChange('cnpj', formatCNPJ(e.target.value))} placeholder="00.000.000/0000-00" />
+                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData?.cnpj} onChange={e => handlePostoChange('cnpj', formatCNPJ(e.target.value))} placeholder="00.000.000/0000-00" />
               </div>
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Insc. Estadual</label>
-                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.inscEstadual} onChange={e => handlePostoChange('inscEstadual', e.target.value)} placeholder="ISENTO" />
+                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData?.inscEstadual} onChange={e => handlePostoChange('inscEstadual', e.target.value)} placeholder="ISENTO" />
               </div>
            </div>
            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">CEP</label>
-                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.cep} onChange={e => handlePostoChange('cep', formatCEP(e.target.value))} placeholder="00000-000" />
+                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData?.cep} onChange={e => handlePostoChange('cep', formatCEP(e.target.value))} placeholder="00000-000" />
               </div>
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Telefone</label>
-                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.fone} onChange={e => handlePostoChange('fone', e.target.value)} placeholder="(00) 0000-0000" />
+                <input className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData?.fone} onChange={e => handlePostoChange('fone', e.target.value)} placeholder="(00) 0000-0000" />
               </div>
            </div>
            <div>
               <label className="text-[8px] font-black text-slate-500 uppercase block mb-1 ml-2">Endereço Completo</label>
-              <textarea className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50 min-h-[80px]" value={postoData.endereco} onChange={e => handlePostoChange('endereco', e.target.value.toUpperCase())} placeholder="RUA, NÚMERO, BAIRRO, CIDADE-UF" />
+              <textarea className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50 min-h-[80px]" value={postoData?.endereco} onChange={e => handlePostoChange('endereco', e.target.value.toUpperCase())} placeholder="RUA, NÚMERO, BAIRRO, CIDADE-UF" />
            </div>
         </div>
       </section>
@@ -183,10 +181,10 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
       <section className="space-y-4">
         <div className="flex items-center gap-2 px-2"><User size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Identificação</h4></div>
         <div className="grid grid-cols-2 gap-3">
-           <div className="glass-card rounded-2xl p-4"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Placa</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white uppercase" value={invoiceData.placa} onChange={e => handleInvoiceChange('placa', e.target.value.toUpperCase())} placeholder="ABC1D23" /></div>
-           <div className="glass-card rounded-2xl p-4"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">KM Atual</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white" value={invoiceData.km} onChange={e => handleInvoiceChange('km', e.target.value)} inputMode="numeric" placeholder="0" /></div>
-           <div className="glass-card rounded-2xl p-4 col-span-2"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Motorista</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white uppercase" value={invoiceData.motorista} onChange={e => handleInvoiceChange('motorista', e.target.value.toUpperCase())} placeholder="NOME DO MOTORISTA" /></div>
-           <div className="glass-card rounded-2xl p-4 col-span-2"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Operador (Frentista)</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white uppercase" value={invoiceData.operador} onChange={e => handleInvoiceChange('operador', e.target.value.toUpperCase())} placeholder="NOME DO FRENTISTA" /></div>
+           <div className="glass-card rounded-2xl p-4"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Placa</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white uppercase" value={invoiceData?.placa} onChange={e => handleInvoiceChange('placa', e.target.value.toUpperCase())} placeholder="ABC1D23" /></div>
+           <div className="glass-card rounded-2xl p-4"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">KM Atual</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white" value={invoiceData?.km} onChange={e => handleInvoiceChange('km', e.target.value)} inputMode="numeric" placeholder="0" /></div>
+           <div className="glass-card rounded-2xl p-4 col-span-2"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Motorista</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white uppercase" value={invoiceData?.motorista} onChange={e => handleInvoiceChange('motorista', e.target.value.toUpperCase())} placeholder="NOME DO MOTORISTA" /></div>
+           <div className="glass-card rounded-2xl p-4 col-span-2"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Operador (Frentista)</label><input className="w-full bg-transparent text-sm font-bold outline-none text-white uppercase" value={invoiceData?.operador} onChange={e => handleInvoiceChange('operador', e.target.value.toUpperCase())} placeholder="NOME DO FRENTISTA" /></div>
         </div>
       </section>
 
@@ -203,23 +201,23 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
                  <div className="flex flex-col gap-1">
                     <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Identificador da Bomba (Bico)</span>
                     <div className="text-xs font-bold text-white flex items-center gap-2">
-                       <div className={`w-2 h-2 rounded-full ${invoiceData.bico ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
-                       {invoiceData.bico ? `MEDIDOR ATIVO: ${invoiceData.bico},99` : 'AGUARDANDO LANÇAMENTO'}
+                       <div className={`w-2 h-2 rounded-full ${invoiceData?.bico ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
+                       {invoiceData?.bico ? `MEDIDOR ATIVO: ${invoiceData.bico},99` : 'AGUARDANDO LANÇAMENTO'}
                     </div>
                  </div>
                  
                  <div className="flex flex-col gap-1 border-t border-white/5 pt-3">
                     <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Série Tributária</span>
                     <div className="text-xs font-bold text-white flex items-center gap-2">
-                       <div className={`w-2 h-2 rounded-full ${invoiceData.serie ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
-                       {invoiceData.serie ? `SÉRIE GERADA: ${invoiceData.serie}` : 'GERAÇÃO DINÂMICA'}
+                       <div className={`w-2 h-2 rounded-full ${invoiceData?.serie ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
+                       {invoiceData?.serie ? `SÉRIE GERADA: ${invoiceData.serie}` : 'GERAÇÃO DINÂMICA'}
                     </div>
                  </div>
 
                  <div className="flex flex-col gap-1 border-t border-white/5 pt-3">
                     <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Código Estrutural</span>
                     <div className="text-[10px] font-mono font-bold text-indigo-300 break-all leading-tight opacity-80">
-                       {invoiceData.detalheCodigo || '#CF: AUTO-GEN-ACTIVE'}
+                       {invoiceData?.detalheCodigo || '#CF: AUTO-GEN-ACTIVE'}
                     </div>
                  </div>
               </div>
@@ -239,7 +237,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
                 { id: 'CARTAO', icon: CreditCard, label: 'Cartão' }
               ].map((m) => {
                 const Icon = m.icon;
-                const active = invoiceData.formaPagamento === m.id || (m.id === 'CARTAO' && ['CREDITO', 'DEBITO', 'CARTAO'].includes(invoiceData.formaPagamento));
+                const active = invoiceData?.formaPagamento === m.id || (m.id === 'CARTAO' && ['CREDITO', 'DEBITO', 'CARTAO'].includes(invoiceData?.formaPagamento || ''));
                 return (
                   <button key={m.id} onClick={() => handleInvoiceChange('formaPagamento', m.id as PaymentMethod)} className={`flex-1 py-3 rounded-2xl flex flex-col items-center justify-center gap-1 border transition-all ${active ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/5 text-slate-500'}`}><Icon size={16} /><span className="text-[8px] font-black uppercase">{m.label}</span></button>
                 );
@@ -254,17 +252,17 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
            <div className="flex items-center gap-2"><PlusCircle size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Produtos</h4></div>
            <button onClick={addFuel} className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1"><Plus size={14} /> Adicionar</button>
         </div>
-        {fuels.map((fuel) => {
-           const currentProduct = prices.find(p => p.id === fuel.productId);
+        {(fuels || []).map((fuel) => {
+           const currentProduct = (prices || []).find(p => p.id === fuel.productId);
            const activePriceStr = (isSpecialPrice && currentProduct?.priceCard && parseLocaleNumber(currentProduct.priceCard) > 0) ? currentProduct.priceCard : (currentProduct?.price || fuel.unitPrice);
            return (
              <div key={fuel.id} className="glass-card rounded-3xl p-5 border border-white/5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
-                   <select className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500/50" value={fuel.productId || ''} onChange={(e) => { const sel = prices.find(p => p.id === e.target.value); if (sel) { setFuels(fuels.map(f => f.id === fuel.id ? { ...f, productId: sel.id, name: sel.name, unitPrice: sel.price, unitPriceCard: sel.priceCard, code: sel.code, total: toCurrency(quantityToFloat(f.quantity) * parseLocaleNumber(isSpecialPrice && sel.priceCard && parseLocaleNumber(sel.priceCard) > 0 ? sel.priceCard : sel.price)) } : f)); } }}>
+                   <select className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500/50" value={fuel.productId || ''} onChange={(e) => { const sel = (prices || []).find(p => p.id === e.target.value); if (sel) { setFuels((fuels || []).map(f => f.id === fuel.id ? { ...f, productId: sel.id, name: sel.name, unitPrice: sel.price, unitPriceCard: sel.priceCard, code: sel.code, total: toCurrency(quantityToFloat(f.quantity) * parseLocaleNumber(isSpecialPrice && sel.priceCard && parseLocaleNumber(sel.priceCard) > 0 ? sel.priceCard : sel.price)) } : f)); } }}>
                       <option value="" className="bg-slate-900">Selecione o Produto</option>
-                      {prices.map(p => (<option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>))}
+                      {(prices || []).map(p => (<option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>))}
                    </select>
-                   <button onClick={() => setFuels(fuels.filter(f => f.id !== fuel.id))} className="p-2 text-rose-500 active:scale-90 transition-transform"><Trash2 size={18} /></button>
+                   <button onClick={() => setFuels((fuels || []).filter(f => f.id !== fuel.id))} className="p-2 text-rose-500 active:scale-90 transition-transform"><Trash2 size={18} /></button>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                    <div className="relative">
@@ -290,7 +288,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
           <FileCheck size={20} /> FINALIZAR LANÇAMENTO
         </button>
 
-        {invoiceData.chaveAcesso && (
+        {invoiceData?.chaveAcesso && (
           <div className="glass-card rounded-[2.5rem] p-6 border border-indigo-500/30 bg-indigo-500/5 animate-reveal space-y-4">
              <div className="flex items-center justify-between">
                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em]">Dados Fiscais Gerados</h4>

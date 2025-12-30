@@ -62,7 +62,6 @@ const LayoutEditorModal: React.FC<{
     }
   };
 
-  // Dados fictícios/reais para o preview
   const previewData = {
     posto: { ...postoData, razaoSocial: postoData.razaoSocial || 'POSTO EXEMPLO LTDA' },
     invoice: { ...invoiceData, numero: '000123456', dataEmissao: new Date().toLocaleString() },
@@ -72,7 +71,7 @@ const LayoutEditorModal: React.FC<{
       valFederal: 15.10,
       valEstadual: 30.10,
       valMunicipal: 0,
-      activeFuels: fuels.length > 0 ? fuels.map(f => ({ ...f, q: 10, p: 5.5, t: 55 })) : [
+      activeFuels: (fuels || []).length > 0 ? (fuels || []).map(f => ({ ...f, q: 10, p: 5.5, t: 55 })) : [
         { id: '1', code: '001', name: 'GASOLINA COMUM', q: 25.450, p: 5.890, t: 149.90, unit: 'L' } as any
       ],
       qrCodeImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=PROXIMO',
@@ -84,7 +83,6 @@ const LayoutEditorModal: React.FC<{
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-4 bg-black/95 backdrop-blur-2xl animate-fade-in overflow-hidden">
       <div className="glass-card w-full max-w-5xl h-full sm:h-[90vh] rounded-none sm:rounded-[3rem] shadow-2xl border border-white/10 animate-reveal flex flex-col overflow-hidden">
         
-        {/* Header */}
         <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-indigo-500/20 text-indigo-400 rounded-2xl">
@@ -108,12 +106,9 @@ const LayoutEditorModal: React.FC<{
           </div>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           
-          {/* Controls (Configuração) */}
           <div className={`flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar ${showPreview ? 'hidden md:block' : 'block'}`}>
-            {/* Seção Identidade */}
             <div className="space-y-4">
               <label className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 block">Identidade Visual</label>
               <div className="grid grid-cols-1 gap-4">
@@ -144,7 +139,6 @@ const LayoutEditorModal: React.FC<{
               </div>
             </div>
 
-            {/* Tipografia */}
             <div className="space-y-4 pt-4 border-t border-white/5">
               <label className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 block">Tipografia & Formatação</label>
               <div className="grid grid-cols-2 gap-4">
@@ -167,7 +161,6 @@ const LayoutEditorModal: React.FC<{
               </div>
             </div>
 
-            {/* Textos */}
             <div className="space-y-4 pt-4 border-t border-white/5">
               <label className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-4 block">Textos do Cupom</label>
               <div className="space-y-4">
@@ -190,7 +183,6 @@ const LayoutEditorModal: React.FC<{
               </div>
             </div>
 
-            {/* Visibilidade */}
             <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
               {[
                 { field: 'showQrCode', label: 'QR Code' },
@@ -212,7 +204,6 @@ const LayoutEditorModal: React.FC<{
             </div>
           </div>
 
-          {/* Preview Panel (Direita) */}
           <div className={`flex-1 bg-slate-900/50 flex flex-col items-center justify-start p-6 overflow-y-auto no-scrollbar border-l border-white/5 ${showPreview ? 'block' : 'hidden md:flex'}`}>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-8 block">Preview em Tempo Real</label>
             <div className="scale-[0.8] sm:scale-100 origin-top bg-white p-4 shadow-2xl rounded-sm">
@@ -222,7 +213,6 @@ const LayoutEditorModal: React.FC<{
 
         </div>
 
-        {/* Footer Actions */}
         <div className="p-8 border-t border-white/5 bg-white/5">
           <button 
             onClick={() => onSave(formData)}
@@ -256,7 +246,7 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
   };
 
   const handleExport = () => {
-    const data = { models: savedModels, layouts: customLayouts, exportedAt: new Date().toISOString() };
+    const data = { models: savedModels || [], layouts: customLayouts || [], exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -271,7 +261,7 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
-        const models = Array.isArray(data) ? data : data.models;
+        const models = Array.isArray(data) ? data : (data.models || []);
         if (confirm(`Importar ${models.length} modelos? Isso substituirá os atuais.`)) onImportBackup(models, data.layouts);
       } catch { alert("Arquivo inválido"); }
     };
@@ -327,11 +317,10 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
              <Database size={14} />
              <span className="text-[9px] font-black uppercase tracking-widest">Modelos</span>
            </div>
-           <div className="text-2xl font-black text-indigo-500 tracking-tight">{savedModels.length}</div>
+           <div className="text-2xl font-black text-indigo-500 tracking-tight">{(savedModels || []).length}</div>
         </div>
       </div>
 
-      {/* Estilos de Impressão Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between px-2">
            <div className="flex items-center gap-2">
@@ -343,7 +332,7 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
            </button>
         </div>
         <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5 divide-y divide-white/5">
-           {customLayouts.map(layout => (
+           {(customLayouts || []).map(layout => (
              <div key={layout.id} className="p-5 flex items-center justify-between group hover:bg-white/5 transition-all">
                 <div>
                    <div className="font-bold text-sm dark:text-white uppercase truncate max-w-[150px]">{layout.name}</div>
@@ -360,14 +349,13 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
         </div>
       </div>
 
-      {/* Model Library Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-2">
            <FolderOpen size={14} className="text-indigo-500" />
            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Biblioteca de Modelos</h4>
         </div>
         <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5 divide-y divide-white/5">
-           {savedModels.map(model => (
+           {(savedModels || []).map(model => (
              <div key={model.id} className="p-5 flex items-center justify-between group hover:bg-white/5 transition-all">
                 <div className="flex-1 overflow-hidden">
                    <div className="font-bold text-sm dark:text-white uppercase truncate mb-0.5">{model.name}</div>

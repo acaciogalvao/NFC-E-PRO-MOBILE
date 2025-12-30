@@ -1,8 +1,8 @@
 
 import React, { useMemo, useState } from 'react';
-import { PaymentMethod } from '../types';
+import { PaymentMethod } from '../components/shared/types';
 import { CreditCard, Banknote, CheckCircle, Loader2, Wifi, QrCode as QrIcon, Copy, Check } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+import { useAppContext } from '../components/shared/context/AppContext';
 import { parseLocaleNumber, generatePixPayload } from '../utils/helpers';
 
 const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
@@ -11,18 +11,22 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
   
+  if (!invoiceData || !postoData) {
+    return <div className="p-10 text-center text-slate-500 font-bold uppercase text-xs">Carregando gateway...</div>;
+  }
+
   const handleMethodChange = (method: PaymentMethod) => {
     setInvoiceData(prev => ({ ...prev, formaPagamento: method }));
     setPaymentSuccess(false);
   };
 
   const totalLiquido = useMemo(() => {
+    if (!fuels) return 0;
     return fuels.reduce((acc, fuel) => acc + parseLocaleNumber(fuel.total), 0);
   }, [fuels]);
 
   const pixPayload = useMemo(() => {
     if (invoiceData.formaPagamento === 'PIX' && postoData.chavePix) {
-      // Extraindo a cidade do endereço para o Pix
       const addressParts = (postoData.endereco || '').split(',');
       let city = 'IMPERATRIZ';
       
@@ -35,7 +39,6 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
         }
       }
 
-      // Se por algum motivo a limpeza falhar, manter fallback seguro
       if (!city || city.length < 2) city = 'IMPERATRIZ';
       
       return generatePixPayload(
@@ -51,7 +54,6 @@ const PaymentScreen: React.FC<{ onConfirm: () => void }> = ({ onConfirm }) => {
 
   const qrCodeUrl = useMemo(() => {
     if (!pixPayload) return '';
-    // Gerador de QR Code externo (API Gratuita)
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixPayload)}`;
   }, [pixPayload]);
 
