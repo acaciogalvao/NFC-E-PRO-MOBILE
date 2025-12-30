@@ -128,3 +128,12 @@ export interface SavedModel {
   invoiceData: InvoiceData;
   fuels: FuelItem[];
 }
+
+export interface PrintLog {
+  id: string;
+  timestamp: string;
+  modelName: string;
+  type: 'PRINT' | 'PDF';
+  totalValue: string;
+  receiptSnapshot?: ReceiptData;
+}

@@ -5,9 +5,10 @@ interface ActionButtonsProps {
   onDownload: () => void;
   onPrint: () => void;
   isDownloading: boolean;
+  isPrinting: boolean;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({ onDownload, onPrint, isDownloading }) => {
+const ActionButtons: React.FC<ActionButtonsProps> = ({ onDownload, onPrint, isDownloading, isPrinting }) => {
   return (
     <div className="flex items-center gap-2">
       <button 
@@ -20,10 +21,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onDownload, onPrint, isDo
       </button>
       <button 
         onClick={onPrint} 
-        className="p-2.5 rounded-xl glass-card text-slate-400"
+        disabled={isPrinting}
+        className={`p-2.5 rounded-xl glass-card transition-all ${isPrinting ? 'text-indigo-400' : 'text-slate-400'}`}
         title="Imprimir"
       >
-        <Printer size={20} />
+        {isPrinting ? <Loader2 size={20} className="animate-spin" /> : <Printer size={20} />}
       </button>
     </div>
   );

@@ -1,7 +1,8 @@
+
 import { useState } from 'react';
-import { BluetoothRemoteGATTCharacteristic } from '../types';
+import { BluetoothRemoteGATTCharacteristic } from '../components/shared/types';
 import { connectBluetoothPrinter } from '../services/bluetooth';
-import { useAppContext } from '../context/AppContext';
+import { useAppContext } from '../components/shared/context/AppContext';
 
 export const useBluetooth = () => {
   const [printCharacteristic, setPrintCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);

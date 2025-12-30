@@ -1,9 +1,10 @@
 
-import { SavedModel, LayoutConfig } from '../../components/shared/types';
+import { SavedModel, LayoutConfig, PrintLog } from '../../components/shared/types';
 import { 
   LOCAL_STORAGE_KEY_MODELS, 
   LOCAL_STORAGE_KEY_LAYOUTS,
   LOCAL_STORAGE_KEY_ACTIVE_ID,
+  LOCAL_STORAGE_KEY_HISTORY,
   DEFAULT_LAYOUTS,
   ALMEIDA_DEFAULT_MODEL,
   GUIMARAES_DEFAULT_MODEL,
@@ -80,6 +81,31 @@ class StorageService {
 
   saveLayouts(layouts: LayoutConfig[]): void {
     localStorage.setItem(LOCAL_STORAGE_KEY_LAYOUTS, JSON.stringify(layouts));
+  }
+
+  // --- HISTÓRICO DE IMPRESSÃO ---
+
+  getPrintHistory(): PrintLog[] {
+    try {
+      const item = localStorage.getItem(LOCAL_STORAGE_KEY_HISTORY);
+      if (item) {
+        return JSON.parse(item);
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  savePrintLog(log: PrintLog): PrintLog[] {
+    const history = this.getPrintHistory();
+    const newHistory = [log, ...history].slice(0, 100); // Mantém apenas os últimos 100
+    localStorage.setItem(LOCAL_STORAGE_KEY_HISTORY, JSON.stringify(newHistory));
+    return newHistory;
+  }
+
+  clearPrintHistory(): void {
+    localStorage.removeItem(LOCAL_STORAGE_KEY_HISTORY);
   }
 }
 

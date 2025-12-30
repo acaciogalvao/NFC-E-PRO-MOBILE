@@ -19,7 +19,7 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <nav className="fixed bottom-6 left-6 right-6 z-40">
+    <nav className="fixed bottom-8 left-6 right-6 z-40 pb-safe">
       <div className="glass-card rounded-[2rem] p-2 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -29,8 +29,8 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                relative flex flex-col items-center justify-center px-4 py-2.5 rounded-2xl transition-all duration-300 min-w-[64px]
-                ${isActive ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}
+                relative flex flex-col items-center justify-center px-3 py-2.5 rounded-2xl transition-all duration-300 min-w-[60px] flex-1
+                ${isActive ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 scale-105' : 'text-slate-500 hover:text-slate-300'}
               `}
             >
               <Icon size={20} className={isActive ? 'animate-float' : ''} />
@@ -38,7 +38,7 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
                 {tab.label}
               </span>
               {isActive && (
-                <span className="absolute -bottom-1 w-1 h-1 bg-white rounded-full"></span>
+                <span className="absolute -bottom-1 w-1 h-1 bg-white rounded-full opacity-50"></span>
               )}
             </button>
           );

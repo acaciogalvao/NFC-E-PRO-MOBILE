@@ -1,10 +1,12 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Database, Trash2, Download, Upload, HardDrive, Edit3, ArrowUpRight, FolderOpen, AlertTriangle, ShieldCheck, Cloud, RefreshCw, Loader2, Palette, Plus, X, Save, Settings, Type, AlignCenter, AlignLeft, Image as ImageIcon, Check, Eye } from 'lucide-react';
-import { SavedModel, LayoutConfig } from '../types';
-import { LOCAL_STORAGE_KEY_MODELS, LOCAL_STORAGE_KEY_LAYOUTS, DEFAULT_LAYOUTS } from '../utils/constants';
-import { useAppContext } from '../context/AppContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { Database, Trash2, Download, Upload, HardDrive, Edit3, ArrowUpRight, FolderOpen, AlertTriangle, ShieldCheck, Cloud, RefreshCw, Loader2, Palette, Plus, X, Save, Eye, Check, Image as ImageIcon, History, Printer, FileText, CalendarClock } from 'lucide-react';
+import { SavedModel, LayoutConfig, PrintLog, ReceiptData } from '../components/shared/types';
+import { LOCAL_STORAGE_KEY_MODELS, LOCAL_STORAGE_KEY_LAYOUTS, DEFAULT_LAYOUTS } from '../components/shared/constants';
+import { useAppContext } from '../components/shared/context/AppContext';
 import StandardReceipt from '../components/receipts/StandardReceipt';
+import GuimaraesReceipt from '../components/receipts/GuimaraesReceipt';
+import AlmeidaReceipt from '../components/receipts/AlmeidaReceipt';
 
 interface DataScreenProps {
   onRefresh: () => void;
@@ -15,6 +17,64 @@ interface DataScreenProps {
   onClearAllData: () => void;
   onImportBackup: (models: SavedModel[], layouts?: LayoutConfig[]) => void;
 }
+
+const HistoryPreviewModal: React.FC<{
+  log: PrintLog | null;
+  isOpen: boolean;
+  onClose: () => void;
+  layouts: LayoutConfig[];
+}> = ({ log, isOpen, onClose, layouts }) => {
+  if (!isOpen || !log) return null;
+
+  const data = log.receiptSnapshot;
+  
+  if (!data) {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+        <div className="glass-card w-full max-w-sm rounded-[2rem] p-6 text-center animate-reveal">
+           <AlertTriangle size={40} className="mx-auto text-amber-500 mb-4" />
+           <h3 className="text-white font-bold text-lg mb-2">Visualização Indisponível</h3>
+           <p className="text-slate-400 text-sm mb-6">Este registro é antigo e não possui um snapshot visual salvo.</p>
+           <button onClick={onClose} className="w-full py-3 bg-white/10 rounded-xl text-white font-bold">FECHAR</button>
+        </div>
+      </div>
+    );
+  }
+
+  const layoutId = data.posto.activeLayoutId;
+  const currentLayout = layouts.find(l => l.id === layoutId) || DEFAULT_LAYOUTS[0];
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-4 bg-black/95 backdrop-blur-2xl animate-fade-in overflow-hidden">
+      <div className="glass-card w-full max-w-lg h-full sm:h-[90vh] rounded-none sm:rounded-[3rem] shadow-2xl border border-white/10 animate-reveal flex flex-col overflow-hidden">
+         <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/5">
+            <div className="flex items-center gap-3">
+               <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl">
+                 {log.type === 'PDF' ? <FileText size={20} /> : <Printer size={20} />}
+               </div>
+               <div>
+                 <h3 className="text-sm font-black text-white uppercase tracking-tight">Comprovante Arquivado</h3>
+                 <p className="text-[10px] font-bold text-slate-500 uppercase">{new Date(log.timestamp).toLocaleString()}</p>
+               </div>
+            </div>
+            <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-slate-400 hover:text-white"><X size={20} /></button>
+         </div>
+         
+         <div className="flex-1 overflow-y-auto p-4 bg-slate-900/50 flex justify-center">
+            <div className="scale-[0.85] sm:scale-100 origin-top shadow-2xl">
+               {currentLayout.id === 'modelo_guimaraes' && <GuimaraesReceipt data={data} layout={currentLayout} width="80mm" />}
+               {currentLayout.id === 'modelo_almeida' && <AlmeidaReceipt data={data} layout={currentLayout} width="80mm" />}
+               {currentLayout.id !== 'modelo_guimaraes' && currentLayout.id !== 'modelo_almeida' && <StandardReceipt data={data} layout={currentLayout} width="80mm" />}
+            </div>
+         </div>
+
+         <div className="p-5 border-t border-white/5 bg-white/5 text-center">
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Cópia de Segurança - Modo Leitura</p>
+         </div>
+      </div>
+    </div>
+  );
+};
 
 const LayoutEditorModal: React.FC<{
   layout: LayoutConfig | null;
@@ -227,10 +287,14 @@ const LayoutEditorModal: React.FC<{
 };
 
 const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onRenameModel, onLoadModel, onClearAllData, onImportBackup }) => {
-  const { handleSyncFromCloud, isSyncing, customLayouts, handleSaveLayout, handleDeleteLayout } = useAppContext();
+  const { handleSyncFromCloud, isSyncing, customLayouts, handleSaveLayout, handleDeleteLayout, printHistory, handleClearHistory } = useAppContext();
   const [dbSize, setDbSize] = useState<string>('0 KB');
   const [editingLayout, setEditingLayout] = useState<LayoutConfig | null>(null);
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false);
+  
+  // States para visualização do histórico
+  const [selectedLog, setSelectedLog] = useState<PrintLog | null>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   useEffect(() => {
     calculateStats();
@@ -271,6 +335,11 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
   const openLayoutEditor = (layout: LayoutConfig | null = null) => {
     setEditingLayout(layout);
     setIsLayoutModalOpen(true);
+  };
+
+  const openHistoryPreview = (log: PrintLog) => {
+    setSelectedLog(log);
+    setIsHistoryModalOpen(true);
   };
 
   return (
@@ -318,6 +387,53 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
              <span className="text-[9px] font-black uppercase tracking-widest">Modelos</span>
            </div>
            <div className="text-2xl font-black text-indigo-500 tracking-tight">{(savedModels || []).length}</div>
+        </div>
+      </div>
+
+      {/* HISTÓRICO DE IMPRESSÃO */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+           <div className="flex items-center gap-2">
+              <History size={14} className="text-indigo-500" />
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Histórico de Emissões</h4>
+           </div>
+           {printHistory.length > 0 && (
+             <button onClick={handleClearHistory} className="text-[9px] font-bold text-rose-500 hover:text-rose-400 uppercase tracking-widest">
+               Limpar
+             </button>
+           )}
+        </div>
+        <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5 max-h-60 overflow-y-auto no-scrollbar">
+           {printHistory.length === 0 ? (
+             <div className="p-8 text-center text-slate-500 font-bold uppercase text-[10px]">Nenhum registro encontrado</div>
+           ) : (
+             <div className="divide-y divide-white/5">
+               {printHistory.map(log => (
+                 <button 
+                    key={log.id} 
+                    onClick={() => openHistoryPreview(log)}
+                    className="w-full text-left p-4 flex items-center justify-between hover:bg-white/5 transition-colors group"
+                 >
+                    <div className="flex items-center gap-3">
+                       <div className={`p-2 rounded-xl transition-colors ${log.type === 'PDF' ? 'bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white' : 'bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white'}`}>
+                          {log.type === 'PDF' ? <FileText size={16} /> : <Printer size={16} />}
+                       </div>
+                       <div>
+                          <div className="font-bold text-xs text-white uppercase truncate max-w-[140px]">{log.modelName}</div>
+                          <div className="flex items-center gap-2 text-[9px] text-slate-500 font-bold mt-0.5">
+                             <CalendarClock size={10} />
+                             {new Date(log.timestamp).toLocaleString('pt-BR')}
+                          </div>
+                       </div>
+                    </div>
+                    <div className="text-right">
+                       <div className="font-black text-xs text-indigo-400 group-hover:text-white transition-colors">R$ {log.totalValue}</div>
+                       <div className="text-[8px] font-bold text-slate-600 uppercase group-hover:text-slate-400">{log.type}</div>
+                    </div>
+                 </button>
+               ))}
+             </div>
+           )}
         </div>
       </div>
 
@@ -410,6 +526,13 @@ const DataScreen: React.FC<DataScreenProps> = ({ savedModels, onDeleteModel, onR
           handleSaveLayout(layout);
           setIsLayoutModalOpen(false);
         }}
+      />
+      
+      <HistoryPreviewModal 
+        isOpen={isHistoryModalOpen}
+        log={selectedLog}
+        onClose={() => setIsHistoryModalOpen(false)}
+        layouts={customLayouts || DEFAULT_LAYOUTS}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ScanLine, PlusCircle, User, CreditCard, Banknote, QrCode as QrIcon, FileCheck, Calendar, Building2, Fingerprint, Smartphone, Key, Mail, Hash, Check, Copy, Settings2, Lock } from 'lucide-react';
-import { PaymentMethod, FuelItem, PixKeyType } from '../types';
-import { useAppContext } from '../context/AppContext';
+import { PaymentMethod, FuelItem, PixKeyType } from '../components/shared/types';
+import { useAppContext } from '../components/shared/context/AppContext';
 import { moneyToFloat, quantityToFloat, formatMoneyMask, formatQuantityInput, generateNfceAccessKey, generateNfceQrCodeUrl, toCurrency, to3Decimals, parseLocaleNumber, formatCNPJ, formatPixKey, formatCEP } from '../utils/helpers';
 
 interface EditScreenProps {

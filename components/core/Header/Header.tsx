@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Sparkles, ChevronRight, Database, Save, PlusCircle, Loader2 } from 'lucide-react';
 import BluetoothButton from '../../buttons/BluetoothButton';
@@ -13,6 +12,7 @@ interface HeaderProps {
   onPrint: () => void;
   isSaving: boolean;
   isDownloading: boolean;
+  isPrinting: boolean;
   isBluetoothConnected: boolean;
   onBluetoothConnect: () => void;
 }
@@ -26,6 +26,7 @@ const Header: React.FC<HeaderProps> = ({
   onPrint,
   isSaving,
   isDownloading,
+  isPrinting,
   isBluetoothConnected,
   onBluetoothConnect
 }) => {
@@ -43,7 +44,12 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <BluetoothButton isConnected={isBluetoothConnected} onClick={onBluetoothConnect} />
-          <ActionButtons isDownloading={isDownloading} onDownload={onDownload} onPrint={onPrint} />
+          <ActionButtons 
+            isDownloading={isDownloading} 
+            isPrinting={isPrinting}
+            onDownload={onDownload} 
+            onPrint={onPrint} 
+          />
         </div>
       </div>
 

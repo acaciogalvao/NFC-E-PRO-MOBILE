@@ -4,6 +4,7 @@ import { SavedModel, PostoData, InvoiceData, LayoutConfig } from '../types';
 export const LOCAL_STORAGE_KEY_LAYOUTS = 'nfce_pro_layouts_v4'; 
 export const LOCAL_STORAGE_KEY_MODELS = 'nfce_models_db_v1';
 export const LOCAL_STORAGE_KEY_ACTIVE_ID = 'nfce_pro_active_id_v1';
+export const LOCAL_STORAGE_KEY_HISTORY = 'nfce_pro_print_history_v1';
 export const API_BASE_URL = 'http://localhost:5000/api'; 
 
 export const BLANK_POSTO: PostoData = {

@@ -3,11 +3,33 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
+
+html {
+  overscroll-behavior: none;
+  height: 100%;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   background-color: #f8fafc;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
+  height: 100%;
+  overflow: hidden; /* App-like behavior */
+}
+
+/* iOS Input Zoom Fix: Force 16px font size on inputs for small screens */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 .dark body {
@@ -30,6 +52,15 @@ body {
 .btn-primary:active { transform: scale(0.96); opacity: 0.9; }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Ensure padding for safe areas */
+.pb-safe {
+  padding-bottom: var(--sab, 20px);
+}
 
 @media print {
   @page { margin: 0; size: auto; }

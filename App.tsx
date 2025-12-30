@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { TabId } from './components/shared/types';
 import TabBar from './components/core/TabBar/TabBar';
@@ -25,10 +24,11 @@ const AppLayout: React.FC = () => {
     handleSaveModel, isSaving, 
     handleNewModel, handleRenameModel, handleDeleteModel, handleLoadModel, handleImportBackup,
     invoiceData,
-    showToast
+    showToast, handleLogPrint
   } = useAppContext();
 
   const [activeTab, setActiveTab] = useState<TabId>('EDITAR');
+  const [isPrinting, setIsPrinting] = useState(false);
   
   const { printCharacteristic, handleBluetoothConnect } = useBluetooth();
   const { isProcessing, handleDownloadPDF } = usePrintPDF(activeTab, invoiceData);
@@ -37,20 +37,28 @@ const AppLayout: React.FC = () => {
     actionModal, setActionModal
   } = useAppActions();
 
+  const selectedModelName = selectedModelId 
+    ? (savedModels?.find(m => m.id === selectedModelId)?.name || 'Novo Rascunho') 
+    : 'Novo Rascunho';
+
   const handlePrint = () => {
     if (activeTab !== 'NOTA' && activeTab !== 'CUPOM') {
       showToast("Acesse a aba 'NFC-e' ou 'Cupom' para imprimir.", "info");
       return;
     }
-    window.print();
+    
+    setIsPrinting(true);
+    
+    // Pequeno delay para permitir que a UI atualize (mostre o loader) antes do bloqueio do window.print()
+    setTimeout(() => {
+      handleLogPrint('PRINT', selectedModelName);
+      window.print();
+      setIsPrinting(false);
+    }, 100);
   };
 
-  const selectedModelName = selectedModelId 
-    ? (savedModels?.find(m => m.id === selectedModelId)?.name || 'Novo Rascunho') 
-    : 'Novo Rascunho';
-
   return (
-    <div className="w-full min-h-dvh flex flex-col bg-slate-50 dark:bg-[#0a0a0b] transition-colors duration-500 overflow-hidden">
+    <div className="w-full h-dvh flex flex-col bg-slate-50 dark:bg-[#0a0a0b] transition-colors duration-500 overflow-hidden">
       <ToastContainer notifications={notifications || []} />
 
       <Header 
@@ -62,15 +70,13 @@ const AppLayout: React.FC = () => {
         onPrint={handlePrint}
         isSaving={isSaving}
         isDownloading={isProcessing}
+        isPrinting={isPrinting}
         isBluetoothConnected={!!printCharacteristic}
         onBluetoothConnect={handleBluetoothConnect}
       />
 
-      <div className="mt-auto px-6 print:hidden">
-        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
-
-      <main className="flex-1 overflow-y-auto px-6 pt-2 pb-32 no-scrollbar animate-reveal">
+      {/* Main content scroll area */}
+      <main className="flex-1 overflow-y-auto px-6 pt-2 pb-32 no-scrollbar animate-reveal overscroll-contain">
         <div className="max-w-md mx-auto">
           {activeTab === 'EDITAR' && <EditScreen onGenerate={() => setActiveTab('PAGAMENTO')} />}
           {activeTab === 'PRECOS' && <PricesScreen />}
@@ -90,6 +96,10 @@ const AppLayout: React.FC = () => {
           )}
         </div>
       </main>
+
+      <div className="mt-auto px-6 print:hidden z-40">
+        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
 
       <ModelListModal 
         isOpen={showModelModal} 

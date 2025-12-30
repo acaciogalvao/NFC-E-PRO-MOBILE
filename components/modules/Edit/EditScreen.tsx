@@ -77,6 +77,18 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
         config: { responseMimeType: "application/json" }
       });
       showToast("Dados processados!", "success");
+      
+      try {
+        const text = response.text;
+        if(text) {
+           const json = JSON.parse(text);
+           // Simple mapping example - real implementation would be more robust
+           if(json.posto) setPostoData(prev => ({ ...prev, ...json.posto }));
+           if(json.cnpj) setPostoData(prev => ({ ...prev, cnpj: json.cnpj }));
+        }
+      } catch (e) {
+        console.error("Error parsing AI response", e);
+      }
     } catch (e) { showToast("Falha na IA", "error"); }
     finally { setIsScanning(false); }
   };
@@ -139,15 +151,15 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
     <div className="space-y-8 pb-48 animate-reveal">
       {/* SCANNER */}
       <div className="grid grid-cols-2 gap-3">
-         <button onClick={() => cameraInputRef.current?.click()} className="glass-card rounded-2xl p-4 flex flex-col items-center gap-2 border-indigo-500/20 active:scale-95">
-            <Camera size={20} className="text-indigo-400" />
+         <button onClick={() => cameraInputRef.current?.click()} className="glass-card rounded-2xl p-4 flex flex-col items-center gap-2 border-indigo-500/20 active:scale-95 transition-transform touch-manipulation">
+            <Camera size={24} className="text-indigo-400" />
             <span className="text-[9px] font-black text-white uppercase tracking-widest">Scanner Câmera</span>
          </button>
-         <button onClick={() => fileInputRef.current?.click()} className="glass-card rounded-2xl p-4 flex flex-col items-center gap-2 border-purple-500/20 active:scale-95">
-            <ImageIcon size={20} className="text-purple-400" />
+         <button onClick={() => fileInputRef.current?.click()} className="glass-card rounded-2xl p-4 flex flex-col items-center gap-2 border-purple-500/20 active:scale-95 transition-transform touch-manipulation">
+            <ImageIcon size={24} className="text-purple-400" />
             <span className="text-[9px] font-black text-white uppercase tracking-widest">Scanner Galeria</span>
          </button>
-         <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="camera" onChange={handleFileUpload} />
+         <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
       </div>
 
@@ -157,35 +169,35 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
         <div className="glass-card rounded-[2.5rem] p-6 space-y-4 border border-white/5">
            <div>
               <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Razão Social</label>
-              <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.razaoSocial} onChange={e => handlePostoChange('razaoSocial', e.target.value.toUpperCase())} placeholder="NOME DO POSTO" />
+              <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none focus:border-indigo-500/50" value={postoData.razaoSocial} onChange={e => handlePostoChange('razaoSocial', e.target.value.toUpperCase())} placeholder="NOME DO POSTO" />
            </div>
            
            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">CNPJ</label>
-                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none" value={postoData.cnpj} onChange={e => handlePostoChange('cnpj', formatCNPJ(e.target.value))} placeholder="00.000.000/0000-00" />
+                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none" value={postoData.cnpj} onChange={e => handlePostoChange('cnpj', formatCNPJ(e.target.value))} placeholder="00.000.000/0000-00" inputMode="numeric" />
               </div>
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Insc. Estadual</label>
-                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none" value={postoData.inscEstadual} onChange={e => handlePostoChange('inscEstadual', e.target.value)} placeholder="ISENTO" />
+                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none" value={postoData.inscEstadual} onChange={e => handlePostoChange('inscEstadual', e.target.value)} placeholder="ISENTO" inputMode="numeric" />
               </div>
            </div>
 
            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">CEP</label>
-                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none" value={postoData.cep || ''} onChange={e => handlePostoChange('cep', formatCEP(e.target.value))} placeholder="00000-000" />
+                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none" value={postoData.cep || ''} onChange={e => handlePostoChange('cep', formatCEP(e.target.value))} placeholder="00000-000" inputMode="numeric" />
               </div>
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Telefone</label>
-                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none" value={postoData.fone} onChange={e => handlePostoChange('fone', formatPhone(e.target.value))} placeholder="(00) 00000-0000" />
+                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none" value={postoData.fone} onChange={e => handlePostoChange('fone', formatPhone(e.target.value))} placeholder="(00) 00000-0000" inputMode="tel" />
               </div>
            </div>
 
            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Tipo Pix</label>
-                <select className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none" value={postoData.tipoChavePix || 'CNPJ'} onChange={e => handlePostoChange('tipoChavePix', e.target.value as PixKeyType)}>
+                <select className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none" value={postoData.tipoChavePix || 'CNPJ'} onChange={e => handlePostoChange('tipoChavePix', e.target.value as PixKeyType)}>
                    <option value="CNPJ" className="bg-slate-900">CNPJ</option>
                    <option value="CPF" className="bg-slate-900">CPF</option>
                    <option value="EMAIL" className="bg-slate-900">E-MAIL</option>
@@ -195,13 +207,13 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
               </div>
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Chave Pix</label>
-                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none" value={postoData.chavePix || ''} onChange={e => handlePostoChange('chavePix', formatPixKey(e.target.value, postoData.tipoChavePix || 'CNPJ'))} placeholder="CHAVE PIX" />
+                <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none" value={postoData.chavePix || ''} onChange={e => handlePostoChange('chavePix', formatPixKey(e.target.value, postoData.tipoChavePix || 'CNPJ'))} placeholder="CHAVE PIX" />
               </div>
            </div>
 
            <div>
               <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Endereço Completo</label>
-              <textarea className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50 min-h-[80px]" value={postoData.endereco} onChange={e => handlePostoChange('endereco', e.target.value.toUpperCase())} placeholder="RUA, NÚMERO, BAIRRO, CIDADE-UF" />
+              <textarea className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none focus:border-indigo-500/50 min-h-[80px]" value={postoData.endereco} onChange={e => handlePostoChange('endereco', e.target.value.toUpperCase())} placeholder="RUA, NÚMERO, BAIRRO, CIDADE-UF" />
            </div>
         </div>
       </section>
@@ -217,7 +229,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Placa</label>
                 <input 
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50 uppercase" 
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none focus:border-indigo-500/50 uppercase" 
                   value={invoiceData.placa || ''} 
                   onChange={e => handleInvoiceChange('placa', e.target.value.toUpperCase())} 
                   placeholder="ABC-1234" 
@@ -226,7 +238,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
               <div>
                 <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">KM Atual</label>
                 <input 
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50" 
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none focus:border-indigo-500/50" 
                   value={invoiceData.km || ''} 
                   onChange={e => handleInvoiceChange('km', e.target.value)} 
                   placeholder="0" 
@@ -238,7 +250,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
            <div>
               <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Motorista</label>
               <input 
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50 uppercase" 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none focus:border-indigo-500/50 uppercase" 
                 value={invoiceData.motorista || ''} 
                 onChange={e => handleInvoiceChange('motorista', e.target.value.toUpperCase())} 
                 placeholder="NOME DO MOTORISTA" 
@@ -248,7 +260,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
            <div>
               <label className="text-[8px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Operador (Frentista)</label>
               <input 
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-indigo-500/50 uppercase" 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-base font-bold text-white outline-none focus:border-indigo-500/50 uppercase" 
                 value={invoiceData.operador || ''} 
                 onChange={e => handleInvoiceChange('operador', e.target.value.toUpperCase())} 
                 placeholder="NOME DO FRENTISTA" 
@@ -288,7 +300,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">
            <div className="flex items-center gap-2"><PlusCircle size={14} className="text-indigo-500" /><h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Lançamento de Itens</h4></div>
-           <button onClick={() => setFuels(prev => [...(prev || []), { id: Date.now().toString(), code: '', name: 'NOVO ITEM', quantity: '0,000', unit: 'L', unitPrice: '0,00', total: '0,00' }])} className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">+ Item</button>
+           <button onClick={() => setFuels(prev => [...(prev || []), { id: Date.now().toString(), code: '', name: 'NOVO ITEM', quantity: '0,000', unit: 'L', unitPrice: '0,00', total: '0,00' }])} className="text-[9px] font-black text-indigo-500 uppercase tracking-widest py-2 px-3 bg-indigo-500/10 rounded-xl active:bg-indigo-500/20 transition-colors">+ Item</button>
         </div>
         {(fuels || []).map((fuel) => {
            // Encontrar o preço unitário do produto selecionado no catálogo
@@ -323,7 +335,7 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
                          {prices.map(p => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
                        </select>
                     </div>
-                    <button onClick={() => setFuels(prev => prev.filter(f => f.id !== fuel.id))} className="text-rose-500/30 p-2"><Trash2 size={16} /></button>
+                    <button onClick={() => setFuels(prev => prev.filter(f => f.id !== fuel.id))} className="text-rose-500/30 p-2 hover:text-rose-500 transition-colors"><Trash2 size={20} /></button>
                  </div>
                  
                  <div className="grid grid-cols-3 gap-3">
@@ -338,24 +350,24 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
                     <div className="space-y-1.5">
                        <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest block ml-1">Quantidade</span>
                        <input 
-                         className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs font-black text-white text-center outline-none focus:border-indigo-500" 
+                         className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-base font-black text-white text-center outline-none focus:border-indigo-500 transition-colors" 
                          value={fuel.quantity} 
                          onFocus={() => setAwaitingFirstChar(prev => ({ ...prev, [`${fuel.id}-qty`]: true }))} 
                          onChange={(e) => handleInputChange(fuel.id, 'qty', e.target.value)} 
                          placeholder="0,000" 
-                         inputMode="numeric" 
+                         inputMode="decimal" 
                        />
                     </div>
 
                     <div className="space-y-1.5">
                        <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest block ml-1">V. Total R$</span>
                        <input 
-                         className="w-full bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3 text-xs font-black text-emerald-400 text-center outline-none focus:border-emerald-500" 
+                         className="w-full bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3 text-base font-black text-emerald-400 text-center outline-none focus:border-emerald-500 transition-colors" 
                          value={fuel.total} 
                          onFocus={() => setAwaitingFirstChar(prev => ({ ...prev, [`${fuel.id}-total`]: true }))} 
                          onChange={(e) => handleInputChange(fuel.id, 'total', e.target.value)} 
                          placeholder="0,00" 
-                         inputMode="numeric" 
+                         inputMode="decimal" 
                        />
                     </div>
                  </div>
@@ -364,8 +376,8 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
         })}
       </section>
 
-      <div className="fixed bottom-28 left-6 right-6 z-30">
-        <button onClick={handleFinalize} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 py-6 rounded-[2.5rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+      <div className="fixed bottom-28 left-6 right-6 z-30 pb-safe">
+        <button onClick={handleFinalize} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 py-6 rounded-[2.5rem] text-white font-black text-sm shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all touch-manipulation">
           <Sparkles size={20} className="animate-pulse" /> FINALIZAR E GERAR NOTA
         </button>
       </div>

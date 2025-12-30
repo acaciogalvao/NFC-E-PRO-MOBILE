@@ -1,9 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates } from '../types';
+import { PostoData, InvoiceData, FuelItem, PriceItem, SavedModel, LayoutConfig, TaxRates, PrintLog, ReceiptCalculations, ReceiptData } from '../types';
 import { db } from '../../../lib/services/storage';
 import { api } from '../../../lib/services/api';
 import { BLANK_INVOICE, BLANK_POSTO } from '../constants';
+import { parseLocaleNumber, toCurrency, generateNfceQrCodeUrl, round2 } from '../../../utils/helpers';
 
 const DEFAULT_TAX_RATES: TaxRates = { federal: '0,0000', estadual: '0,0000', municipal: '0,0000' };
 const LOCAL_STORAGE_DRAFT_KEY = 'nfce_pro_active_draft_v1';
@@ -21,6 +22,7 @@ interface AppContextData {
   setTaxRates: React.Dispatch<React.SetStateAction<TaxRates>>;
   savedModels: SavedModel[];
   customLayouts: LayoutConfig[];
+  printHistory: PrintLog[];
   selectedModelId: string;
   setSelectedModelId: React.Dispatch<React.SetStateAction<string>>;
   handleLoadModel: (id: string) => void;
@@ -34,6 +36,8 @@ interface AppContextData {
   handleSaveLayout: (layout: LayoutConfig) => void;
   handleUpdateTaxRates: (newRates: TaxRates) => void;
   handleSyncFromCloud: () => Promise<void>;
+  handleLogPrint: (type: 'PRINT' | 'PDF', modelName: string) => void;
+  handleClearHistory: () => void;
   isSaving: boolean;
   isSyncing: boolean;
   notifications: { message: string; type: 'success' | 'error' | 'info'; id: number }[];
@@ -56,6 +60,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   const [customLayouts, setCustomLayouts] = useState<LayoutConfig[]>([]);
+  const [printHistory, setPrintHistory] = useState<PrintLog[]>([]);
 
   const isInitialMount = useRef(true);
 
@@ -64,8 +69,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         const localModels = db.getAllModels() || [];
         const layouts = db.getAllLayouts() || [];
+        const history = db.getPrintHistory() || [];
         setSavedModels(localModels);
         setCustomLayouts(layouts);
+        setPrintHistory(history);
 
         const savedDraft = localStorage.getItem(LOCAL_STORAGE_DRAFT_KEY);
         if (savedDraft) {
@@ -253,14 +260,76 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  const handleLogPrint = (type: 'PRINT' | 'PDF', modelName: string) => {
+    const totalVal = fuels.reduce((acc, f) => acc + parseLocaleNumber(f.total), 0);
+
+    // Snapshot Calculation Logic
+    const isCard = ['CARTAO', 'CREDITO', 'DEBITO'].includes(invoiceData.formaPagamento);
+    const activeFuels = fuels.map(item => {
+        const q = parseLocaleNumber(item.quantity);
+        let p = parseLocaleNumber(item.unitPrice);
+        if (isCard && item.unitPriceCard && parseLocaleNumber(item.unitPriceCard) > 0) p = parseLocaleNumber(item.unitPriceCard);
+        return { ...item, q, p, t: q * p };
+    });
+
+    const rawTotal = activeFuels.reduce((acc, item) => acc + item.t, 0);
+    const pctFederal = parseLocaleNumber(invoiceData.impostos?.federal || '0');
+    const pctEstadual = parseLocaleNumber(invoiceData.impostos?.estadual || '0');
+    const pctMunicipal = parseLocaleNumber(invoiceData.impostos?.municipal || '0');
+    
+    const valFederal = round2((rawTotal * pctFederal) / 100);
+    const valEstadual = round2((rawTotal * pctEstadual) / 100);
+    const valMunicipal = round2((rawTotal * pctMunicipal) / 100);
+
+    let qrCodeImageUrl = '';
+    if (invoiceData.chaveAcesso) {
+        const qrCodeData = generateNfceQrCodeUrl(invoiceData.chaveAcesso);
+        qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}`;
+    }
+
+    const receiptSnapshot: ReceiptData = {
+        posto: { ...postoData },
+        invoice: { ...invoiceData },
+        fuels: [...fuels],
+        calculations: {
+            rawTotal,
+            valTotalTributos: valFederal + valEstadual + valMunicipal,
+            valFederal,
+            valEstadual,
+            valMunicipal,
+            activeFuels,
+            qrCodeImageUrl,
+            paymentMethodLabel: invoiceData.formaPagamento
+        }
+    };
+
+    const newLog: PrintLog = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      modelName: modelName || 'Rascunho Sem Nome',
+      type,
+      totalValue: toCurrency(totalVal),
+      receiptSnapshot
+    };
+    const updatedHistory = db.savePrintLog(newLog);
+    setPrintHistory(updatedHistory);
+  };
+
+  const handleClearHistory = () => {
+    db.clearPrintHistory();
+    setPrintHistory([]);
+    showToast("Histórico limpo.", "info");
+  };
+
   return (
     <AppContext.Provider value={{
       postoData, setPostoData, invoiceData, setInvoiceData, fuels, setFuels,
-      prices, setPrices, taxRates, setTaxRates, savedModels, customLayouts,
+      prices, setPrices, taxRates, setTaxRates, savedModels, customLayouts, printHistory,
       selectedModelId, setSelectedModelId, handleLoadModel, handleSaveModel,
       handleDeleteModel, handleRenameModel, handleNewModel, handleResetAll,
       handleImportBackup, handleDeleteLayout, handleSaveLayout, handleUpdateTaxRates,
-      handleSyncFromCloud, isSaving, isSyncing, notifications, showToast
+      handleSyncFromCloud, handleLogPrint, handleClearHistory,
+      isSaving, isSyncing, notifications, showToast
     }}>
       {children}
     </AppContext.Provider>
