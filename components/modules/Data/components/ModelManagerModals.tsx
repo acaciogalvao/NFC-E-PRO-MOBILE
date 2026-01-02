@@ -84,7 +84,7 @@ export const ModelListModal: React.FC<ModelListModalProps> = ({ isOpen, onClose,
           </div>
 
           <div className="p-6 bg-white/[0.02] border-t border-white/5 text-center">
-             <p className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em]">NFC-e Pro Mobile v2.5</p>
+             <p className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em]">NFC-e Pro v2.5</p>
           </div>
        </div>
     </div>

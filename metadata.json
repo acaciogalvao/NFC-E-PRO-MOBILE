@@ -1,5 +1,5 @@
 {
-  "name": "NFC-e Pro Mobile",
+  "name": "NFC-e Pro",
   "description": "A mobile-first NFC-e management and generation system simulator featuring invoice editing, price management, receipt preview, and API connection testing.",
   "requestFramePermissions": [
     "bluetooth",
