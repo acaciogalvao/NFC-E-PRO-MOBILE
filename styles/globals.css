@@ -1,7 +1,4 @@
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --sat: env(safe-area-inset-top);
@@ -75,4 +72,63 @@ body {
     box-shadow: none !important;
     background-color: transparent !important;
   }
+}
+
+/* Custom Theme Extensions for Tailwind v4 */
+@theme {
+  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+
+  --color-brand-primary: #6366f1;
+  --color-brand-secondary: #a855f7;
+  --color-brand-accent: #06b6d4;
+  --color-brand-dark: #0a0a0b;
+  --color-brand-glass: rgba(255, 255, 255, 0.03);
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+
+  --breakpoint-xs: 375px;
+
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes slideDown {
+    0% { transform: translateY(-1rem); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes slideDownSm {
+    0% { transform: translateY(-0.5rem); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes zoomIn {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes toastSlide {
+    0% { transform: translateY(-1.25rem); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  @keyframes reveal {
+    0% { opacity: 0; transform: scale(0.95); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  --animate-fade-in: fadeIn 0.2s ease-out;
+  --animate-slide-down: slideDown 0.3s ease-out;
+  --animate-slide-down-sm: slideDownSm 0.2s ease-out;
+  --animate-zoom-in: zoomIn 0.2s ease-out;
+  --animate-toast-slide: toastSlide 0.3s ease-out;
+  --animate-shimmer: shimmer 2s infinite;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-reveal: reveal 0.3s cubic-bezier(0, 0, 0.2, 1) forwards;
 }
