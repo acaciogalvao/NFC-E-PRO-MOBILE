@@ -16,6 +16,13 @@ export const useBluetooth = () => {
         showToast(`Impressora Conectada!`, "success");
       }
     } catch (e: any) {
+      // Tratamento específico para quando o usuário cancela a seleção
+      if (e.name === 'NotFoundError' || e.message?.includes('cancelled')) {
+        showToast("Seleção cancelada.", "info");
+        return;
+      }
+      
+      console.error("BT Error:", e);
       showToast(e.message || "Erro conexão BT", "error");
     }
   };

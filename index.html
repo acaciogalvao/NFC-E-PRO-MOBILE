@@ -10,7 +10,60 @@
     <title>NFC-e Pro | Premium Edition</title>
     
     <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/styles/globals.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              mono: ['JetBrains Mono', 'monospace'],
+              sans: ['Plus Jakarta Sans', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                primary: '#6366f1',
+                secondary: '#a855f7',
+                accent: '#06b6d4',
+                dark: '#0a0a0b',
+                glass: 'rgba(255, 255, 255, 0.03)',
+              }
+            },
+            borderRadius: {
+              'xl': '1rem',
+              '2xl': '1.5rem',
+              '3xl': '2rem',
+            },
+            keyframes: {
+              shimmer: { '100%': { transform: 'translateX(100%)' } },
+              float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-5px)' } },
+              reveal: { '0%': { opacity: '0', transform: 'scale(0.95)' }, '100%': { opacity: '1', transform: 'scale(1)' } }
+            },
+            animation: {
+              'shimmer': 'shimmer 2s infinite',
+              'float': 'float 3s ease-in-out infinite',
+              'reveal': 'reveal 0.3s cubic-bezier(0, 0, 0.2, 1) forwards',
+            }
+          }
+        }
+      }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter+Tight:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@^19.2.3",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+        "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+        "jspdf": "https://esm.sh/jspdf@2.5.1",
+        "@google/genai": "https://esm.sh/@google/genai"
+      }
+    }
+    </script>
   </head>
   <body class="selection:bg-indigo-500/30">
     <div id="root"></div>

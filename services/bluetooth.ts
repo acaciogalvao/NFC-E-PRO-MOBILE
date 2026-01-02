@@ -1,4 +1,5 @@
-import { BluetoothRemoteGATTCharacteristic } from '../types';
+
+import { BluetoothRemoteGATTCharacteristic } from '../components/shared/types';
 
 export const connectBluetoothPrinter = async (): Promise<BluetoothRemoteGATTCharacteristic | null> => {
   if (!(navigator as any).bluetooth) {
@@ -18,7 +19,11 @@ export const connectBluetoothPrinter = async (): Promise<BluetoothRemoteGATTChar
       return characteristic;
     }
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    // Se o usuário cancelar, apenas relança o erro sem poluir o console com 'Error'
+    if (error.name === 'NotFoundError') {
+      throw error;
+    }
     console.error('Bluetooth Connection Error:', error);
     throw error;
   }

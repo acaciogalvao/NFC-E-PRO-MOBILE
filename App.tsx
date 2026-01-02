@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { TabId } from './components/shared/types';
 import TabBar from './components/core/TabBar/TabBar';
@@ -47,14 +48,16 @@ const AppLayout: React.FC = () => {
       return;
     }
     
+    // Ativa o estado de carregamento
     setIsPrinting(true);
     
-    // Pequeno delay para permitir que a UI atualize (mostre o loader) antes do bloqueio do window.print()
+    // Delay de 800ms para garantir que o usuário veja o feedback visual (loader)
+    // antes da janela nativa de impressão (window.print) bloquear a interface.
     setTimeout(() => {
       handleLogPrint('PRINT', selectedModelName);
       window.print();
       setIsPrinting(false);
-    }, 100);
+    }, 800);
   };
 
   return (
