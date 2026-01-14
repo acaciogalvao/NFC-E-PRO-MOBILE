@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, PlusCircle, Building2, Fingerprint, Lock, FileCheck, Smartphone, Camera, Image as ImageIcon, Sparkles, Hash, Phone, MapPin, QrCode as QrIcon, Tag, User } from 'lucide-react';
 import { FuelItem, PixKeyType, PaymentMethod } from '../../shared/types';
 import { useAppContext } from '../../shared/context/AppContext';
-import { GoogleGenAI, Type } from "@google/genai";
+import { api } from '../../../services/api';
 import { 
   moneyToFloat, 
   quantityToFloat, 
@@ -65,32 +65,29 @@ const EditScreen: React.FC<EditScreenProps> = ({ onGenerate }) => {
 
   const processImageWithAI = async (base64Image: string, mimeType: string) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: [{
-          parts: [
-            { inlineData: { mimeType: mimeType || 'image/jpeg', data: base64Image } },
-            { text: `Extraia dados de nota fiscal de combustível: posto, cnpj, endereco, produtos, totais.` }
-          ]
-        }],
-        config: { responseMimeType: "application/json" }
-      });
+      const json = await api.analyzeReceipt(base64Image, mimeType);
       showToast("Dados processados!", "success");
       
-      try {
-        const text = response.text;
-        if(text) {
-           const json = JSON.parse(text);
-           // Simple mapping example - real implementation would be more robust
-           if(json.posto) setPostoData(prev => ({ ...prev, ...json.posto }));
-           if(json.cnpj) setPostoData(prev => ({ ...prev, cnpj: json.cnpj }));
-        }
-      } catch (e) {
-        console.error("Error parsing AI response", e);
+      if (json.posto) {
+        setPostoData(prev => ({
+          ...prev,
+          razaoSocial: json.posto.razaoSocial || prev.razaoSocial,
+          cnpj: json.posto.cnpj || prev.cnpj,
+          endereco: json.posto.endereco || prev.endereco,
+          cep: json.posto.cep || prev.cep,
+          fone: json.posto.fone || prev.fone
+        }));
       }
-    } catch (e) { showToast("Falha na IA", "error"); }
-    finally { setIsScanning(false); }
+      
+      if (json.produtos && json.produtos.length > 0) {
+        // Lógica para mapear produtos extraídos se necessário
+        console.log("Produtos extraídos:", json.produtos);
+      }
+    } catch (e) { 
+      showToast("Falha na IA: Verifique o servidor", "error"); 
+    } finally { 
+      setIsScanning(false); 
+    }
   };
 
   const handleInputChange = (fuelId: string, field: 'qty' | 'total', rawValue: string) => {

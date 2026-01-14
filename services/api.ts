@@ -68,6 +68,22 @@ class ApiService {
       return false;
     }
   }
+
+  async analyzeReceipt(base64Image: string, mimeType: string): Promise<any> {
+    try {
+      const response = await this.fetchWithTimeout(`${API_BASE_URL}/ai/analyze-receipt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image, mimeType }),
+      }, 30000); // Timeout maior para IA
+
+      if (!response.ok) throw new Error('Erro ao processar imagem no servidor');
+      return await response.json();
+    } catch (error) {
+      console.error('Erro na análise de IA:', error);
+      throw error;
+    }
+  }
 }
 
 export const api = new ApiService();
