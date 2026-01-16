@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        allowedHosts: true // Permite todos os hosts para facilitar o acesso via proxy do Manus
       },
       plugins: [react()],
       define: {
