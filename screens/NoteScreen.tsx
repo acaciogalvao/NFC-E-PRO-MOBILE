@@ -4,6 +4,7 @@ import { ZoomIn, ZoomOut } from 'lucide-react';
 import { useAppContext } from '../components/shared/context/AppContext';
 import { parseLocaleNumber, toCurrency, to3Decimals, generateNfceQrCodeUrl, NFCE_PORTAL_URL, round2 } from '../utils/helpers';
 import { ReceiptData } from '../components/shared/types';
+import { ReceiptSkeleton } from '../components/shared/Skeleton';
 
 const DanfeReceipt: React.FC<{ data: ReceiptData }> = ({ data }) => {
   const { posto, invoice, calculations } = data;
@@ -111,7 +112,14 @@ const NoteScreen: React.FC = () => {
   const [zoomLevel, setZoomLevel] = React.useState(0.5);
   
   if (!invoiceData || !postoData) {
-    return <div className="p-10 text-center text-slate-500 font-bold uppercase text-xs">Carregando dados da nota...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
+        <ReceiptSkeleton />
+        <p className="mt-4 text-slate-500 font-bold uppercase text-[10px] tracking-widest animate-pulse">
+          Processando dados da nota...
+        </p>
+      </div>
+    );
   }
 
   const activeFuels = (fuels || []).map(item => {
